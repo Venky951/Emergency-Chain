@@ -1,0 +1,59 @@
+<%- include('./partials/head', { title: '404 - Page Not Found' }) %>
+</head>
+
+<body class="min-h-screen flex items-center justify-center px-4 text-white">
+
+  <!-- Background Glow -->
+  <div class="absolute w-96 h-96 bg-red-500/20 blur-3xl rounded-full top-10 left-10"></div>
+
+  <div class="absolute w-96 h-96 bg-orange-500/10 blur-3xl rounded-full bottom-10 right-10"></div>
+
+  <!-- Error Card -->
+  <div class="glass relative z-10 max-w-xl w-full rounded-3xl p-10 text-center shadow-2xl">
+
+    <!-- Error Icon -->
+    <div class="text-8xl mb-6">
+      ⚠️
+    </div>
+
+    <!-- Error Code -->
+    <h1 class="text-7xl font-bold gradient-text mb-4">
+      404
+    </h1>
+
+    <!-- Title -->
+    <h2 class="text-3xl font-semibold mb-4">
+      Page Not Found
+    </h2>
+
+    <!-- Description -->
+    <p class="text-slate-400 leading-8 mb-8">
+      The page you are trying to access does not exist
+      or may have been moved.
+    </p>
+
+    <!-- Buttons -->
+    <div class="flex flex-col md:flex-row gap-4 justify-center">
+
+      <!-- Home -->
+      <a
+        href="/"
+        class="bg-gradient-to-r from-red-500 to-orange-500 hover:scale-[1.03] transition duration-300 px-8 py-3 rounded-xl font-semibold shadow-lg shadow-red-500/30"
+      >
+        Go Home
+      </a>
+
+      <!-- Login -->
+      <a
+        href="/login"
+        class="glass hover:bg-white/10 transition px-8 py-3 rounded-xl font-semibold"
+      >
+        Login
+      </a>
+
+    </div>
+
+  </div>
+
+</body>
+</html>

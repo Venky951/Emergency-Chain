@@ -1,0 +1,202 @@
+<%- include ('../partials/head', { title: 'Signup - Emergency Chain' }) %>
+
+</head>
+
+<body class="min-h-screen flex items-center justify-center px-4 py-10 text-white">
+
+  <!-- Background Glow -->
+  <div class="absolute w-96 h-96 bg-red-500/20 blur-3xl rounded-full top-10 left-10"></div>
+  <div class="absolute w-96 h-96 bg-orange-500/10 blur-3xl rounded-full bottom-10 right-10"></div>
+
+  <!-- Signup Card -->
+  <div class="glass relative z-10 w-full max-w-2xl rounded-3xl p-8 shadow-2xl">
+
+    <!-- Logo -->
+    <div class="text-center mb-8">
+
+      <h1 class="text-4xl font-bold gradient-text mb-2">
+        EmergencyChain
+      </h1>
+
+      <p class="text-slate-400">
+        Create your emergency response account
+      </p>
+
+    </div>
+
+    <!-- Signup Form -->
+    <!-- Error Message -->
+    <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
+      <div class="bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-xl mb-6 text-sm">
+        <%= errorMessage %>
+      </div>
+    <% } %>
+
+    <!-- Signup Form -->
+<form action="/signup" method="POST" class="space-y-6">
+
+  <!-- Name + Phone -->
+  <div class="grid md:grid-cols-2 gap-6">
+
+    <div>
+
+      <label class="block mb-2 text-slate-300">
+        Full Name
+      </label>
+
+      <input
+        type="text"
+        name="name"
+        placeholder="Enter your full name"
+        value="<%= typeof oldInput !== 'undefined' && oldInput.name ? oldInput.name : '' %>"
+        class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+        required
+      />
+
+    </div>
+
+    <div>
+
+      <label class="block mb-2 text-slate-300">
+        Phone Number
+      </label>
+
+      <input
+        type="tel"
+        name="phone"
+        placeholder="Enter phone number"
+        value="<%= typeof oldInput !== 'undefined' && oldInput.phone ? oldInput.phone : '' %>"
+        class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+        required
+      />
+
+    </div>
+
+  </div>
+
+  <!-- Email -->
+  <div>
+
+    <label class="block mb-2 text-slate-300">
+      Email Address
+    </label>
+
+    <input
+      type="email"
+      name="email"
+      placeholder="Enter your email"
+      value="<%= typeof oldInput !== 'undefined' && oldInput.email ? oldInput.email : '' %>"
+      class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+      required
+    />
+
+  </div>
+
+  <!-- Password + Confirm -->
+  <div class="grid md:grid-cols-2 gap-6">
+
+    <div>
+
+      <label class="block mb-2 text-slate-300">
+        Password
+      </label>
+
+      <input
+        type="password"
+        name="password"
+        placeholder="Create password"
+        class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+        required
+      />
+
+    </div>
+
+    <div>
+
+      <label class="block mb-2 text-slate-300">
+        Confirm Password
+      </label>
+
+      <input
+        type="password"
+        name="confirmPassword"
+        placeholder="Confirm password"
+        class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+        required
+      />
+
+    </div>
+
+  </div>
+
+  <!-- Emergency Contact -->
+  <div>
+
+    <label class="block mb-2 text-slate-300">
+      Emergency Contact Number
+    </label>
+
+    <input
+      type="tel"
+      name="emergencyContact"
+      placeholder="Emergency contact number"
+      value="<%= typeof oldInput !== 'undefined' && oldInput.emergencyContact ? oldInput.emergencyContact : '' %>"
+      class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+      required
+    />
+
+  </div>
+
+  <!-- Role -->
+  <div>
+
+    <label class="block mb-2 text-slate-300">
+      Select Role
+    </label>
+
+    <select
+      name="role"
+      class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+      required
+    >
+
+      <option value="">Select a role</option>
+      <option value="citizen" <%= typeof oldInput !== 'undefined' && oldInput.role === 'citizen' ? 'selected' : '' %>>
+        Citizen
+      </option>
+
+      <option value="volunteer" <%= typeof oldInput !== 'undefined' && oldInput.role === 'volunteer' ? 'selected' : '' %>>
+        Volunteer
+      </option>
+
+      <option value="ambulance_driver" <%= typeof oldInput !== 'undefined' && oldInput.role === 'ambulance_driver' ? 'selected' : '' %>>
+        Ambulance Driver
+      </option>
+
+      <option value="hospital_staff" <%= typeof oldInput !== 'undefined' && oldInput.role === 'hospital_staff' ? 'selected' : '' %>>
+        Hospital Staff
+      </option>
+
+    </select>
+
+  </div>
+
+  <!-- Terms -->
+  <label class="flex items-start gap-3 text-slate-400 text-sm">
+
+    <input type="checkbox" name="termsAgreed" required class="mt-1" />
+
+    I agree to share emergency-related data for safety purposes.
+
+  </label>
+
+  <!-- Signup Button -->
+  <button
+    type="submit"
+    class="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:scale-[1.02] transition duration-300 py-3 rounded-xl font-semibold shadow-lg shadow-red-500/30"
+  >
+    Create Account
+  </button>
+
+</form>
+</div>

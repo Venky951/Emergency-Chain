@@ -1,0 +1,17 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Project custom styles */
+body { font-family: 'Poppins', sans-serif; }
+
+.gradient-text {
+  background: linear-gradient(90deg, #ff7a7a, #ff3b3b);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.glass {
+  background: rgba(255,255,255,0.02);
+  backdrop-filter: blur(6px);
+}
