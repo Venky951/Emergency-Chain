@@ -59,7 +59,20 @@ const userSchema = new mongoose.Schema(
       required: [true, "Please agree to the terms"],
       default: false,
     },
+    latitude: {
+      type: Number,
+      default: null,
+    },
 
+    longitude: {
+      type: Number,
+      default: null,
+    },
+
+    lastLocationUpdated: {
+      type: Date,
+      default: Date.now,
+    },
     isActive: {
       type: Boolean,
       default: true,

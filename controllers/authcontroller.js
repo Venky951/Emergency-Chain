@@ -145,7 +145,7 @@ exports.postLogin = async (req, res, next) => {
 
     // Find user by email and get password
     const user = await User.findOne({ email: email.toLowerCase() }).select(
-      "+password"
+      "+password",
     );
 
     if (!user) {

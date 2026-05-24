@@ -1,7 +1,6 @@
 const express = require("express");
 const authrouter = express.Router();
 const authcontroller = require("../controllers/authcontroller");
-
 // Signup Routes
 authrouter.get("/signup", authcontroller.getsignup);
 authrouter.post("/signup", authcontroller.postSignup);
@@ -12,5 +11,7 @@ authrouter.post("/login", authcontroller.postLogin);
 
 // Logout Route
 authrouter.post("/logout", authcontroller.postLogout);
+
+// Location Routes
 
 module.exports = authrouter;

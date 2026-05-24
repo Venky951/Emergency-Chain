@@ -60,7 +60,8 @@ app.use((req, res, next) => {
 
 // Routes
 const authRoutes = require("./routes/authrouter");
-
+const locationRoutes = require("./routes/locationrouter");
+const emergencyRoutes = require("./routes/emergencyrouter");
 app.get("/", (req, res) => {
   res.render("index", {
     pageTitle: "Home - EmergencyChain",
@@ -69,7 +70,8 @@ app.get("/", (req, res) => {
 });
 
 app.use(authRoutes);
-
+app.use(locationRoutes);
+app.use(emergencyRoutes);
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
@@ -89,6 +91,6 @@ app.use((req, res) => {
 
 // Server
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

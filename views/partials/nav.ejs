@@ -15,6 +15,7 @@
     </div>
 
     <!-- Buttons Section -->
+     <% if (!isLoggedIn) { %>
     <div class="flex gap-3">
 
       <a href="/login"
@@ -30,7 +31,23 @@
       </a>
 
     </div>
+<% } %>
+<% if (isLoggedIn) { %>
+    <div class="flex gap-3">
 
+      <a href="/dashboard"
+        class="bg-red-500 hover:bg-red-600 transition px-6 py-3 rounded-xl font-semibold shadow-lg shadow-red-500/30"
+      >
+        Dashboard
+      </a>
+
+      <a href="/logout"
+        class="bg-white text-black hover:bg-slate-200 transition px-6 py-3 rounded-xl font-semibold"
+      >
+        Logout
+      </a>
+      </div>
+      <% } %>
   </nav>
 
 </body>

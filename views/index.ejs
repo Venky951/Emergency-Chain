@@ -1,244 +1,382 @@
-
 <%- include('partials/head', { title: 'EmergencyChain - Intelligent Emergency Response System' }) %>
-</head>
+
+<body class="bg-slate-950 text-white min-h-screen">
 
 <%- include('partials/nav') %>
-  </nav>
 
+<!-- HERO -->
+<section class="relative px-6 md:px-16 py-10">
 
-  <!-- Hero Section -->
-  <section class="relative px-6 md:px-16 py-10">
+  <div class="grid md:grid-cols-2 gap-12 items-center">
 
-    <div class="grid md:grid-cols-2 gap-12 items-center">
+    <!-- LEFT -->
+    <div>
 
-      <!-- Left Content -->
-      <div>
+      <h1 class="text-5xl md:text-7xl font-bold leading-tight mb-6">
+        Every
+        <span class="gradient-text">Second</span>
+        Can Save A Life.
+      </h1>
 
+      <p class="text-slate-300 text-lg leading-relaxed mb-8 max-w-xl">
+        One emergency triggers a complete intelligent chain reaction:
+        helper alerts, ambulance dispatch, hospital preparation,
+        and real-time tracking.
+      </p>
 
+      <div class="flex gap-4 flex-wrap">
 
-        <h1 class="text-5xl md:text-7xl font-bold leading-tight mb-6">
-          Every
-          <span class="gradient-text">Second</span>
-          Can Save A Life.
-        </h1>
+        <button class="bg-red-500 hover:bg-red-600 transition px-8 py-4 rounded-2xl font-semibold shadow-lg shadow-red-500/40">
+          Launch System
+        </button>
 
-        <p class="text-slate-300 text-lg leading-relaxed mb-8 max-w-xl">
-          One emergency triggers a complete intelligent chain reaction:
-          helper alerts, ambulance dispatch, hospital preparation,
-          and real-time tracking.
-        </p>
-
-        <div class="flex gap-4 flex-wrap">
-
-          <button class="bg-red-500 hover:bg-red-600 transition px-8 py-4 rounded-2xl font-semibold shadow-lg shadow-red-500/40">
-            Launch System
-          </button>
-
-          <button class="glass hover:bg-white/10 transition px-8 py-4 rounded-2xl font-semibold">
-            View Demo
-          </button>
-
-        </div>
-
-      </div>
-
-
-      <!-- Right Side -->
-      <div class="flex justify-center relative mt-10 md:mt-0">
-
-        <div class="absolute w-96 h-96 bg-red-500/20 blur-3xl rounded-full"></div>
-
-        <button
-          onclick="triggerSOS()"
-          class="pulse-ring relative z-10 w-52 h-52 rounded-full bg-gradient-to-br from-red-500 to-red-700 text-5xl font-bold glow"
-        >
-          SOS
+        <button class="glass hover:bg-white/10 transition px-8 py-4 rounded-2xl font-semibold">
+          View Demo
         </button>
 
       </div>
 
     </div>
 
-  </section>
+    <!-- RIGHT -->
+    <div class="flex justify-center relative mt-10 md:mt-0">
 
+      <div class="absolute w-96 h-96 bg-red-500/20 blur-3xl rounded-full"></div>
 
-  <!-- Live Status -->
-  <section class="px-6 md:px-16 py-10">
+      <button
+        onclick="triggerSOS()"
+        class="pulse-ring relative z-10 w-52 h-52 rounded-full bg-gradient-to-br from-red-500 to-red-700 text-5xl font-bold glow"
+      >
+        SOS
+      </button>
 
-    <div class="glass rounded-3xl p-8">
+    </div>
 
-      <div class="flex justify-between items-center mb-8 flex-wrap gap-4">
+  </div>
 
-        <div>
-          <h2 class="text-3xl font-bold mb-2">
-            Live Emergency Status
-          </h2>
+</section>
 
-          <p class="text-slate-400">
-            Real-time emergency workflow updates.
-          </p>
+<!-- LIVE STATUS -->
+<section class="px-6 md:px-16 py-10">
+
+  <div class="glass rounded-3xl p-8">
+
+    <div class="flex justify-between items-center mb-8 flex-wrap gap-4">
+
+      <div>
+        <h2 class="text-3xl font-bold mb-2">
+          Live Emergency Status
+        </h2>
+
+        <p class="text-slate-400">
+          Real-time emergency workflow updates.
+        </p>
+      </div>
+
+      <div class="bg-green-500/20 text-green-400 px-4 py-2 rounded-full text-sm">
+        ● System Active
+      </div>
+
+    </div>
+
+    <!-- 3 CARDS -->
+    <div class="grid md:grid-cols-3 gap-6">
+
+      <!-- CARD 1 -->
+      <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
+
+        <div class="flex justify-between items-center mb-6">
+
+          <h3 class="text-xl font-semibold">
+            Emergency Alert
+          </h3>
+
+          <div class="bg-red-500/20 p-3 rounded-xl">
+            🚨
+          </div>
+
         </div>
 
-        <div class="bg-green-500/20 text-green-400 px-4 py-2 rounded-full text-sm">
-          ● System Active
+        <p id="statusText" class="text-slate-300 leading-8">
+          Waiting for emergency trigger...
+        </p>
+
+      </div>
+
+      <!-- CARD 2 -->
+      <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
+
+        <div class="flex justify-between items-center mb-6">
+
+          <h3 class="text-xl font-semibold">
+            Nearby Helpers
+          </h3>
+
+          <div class="bg-green-500/20 p-3 rounded-xl">
+            🧑‍🚒
+          </div>
+
+        </div>
+
+        <div id="helpersList" class="space-y-4">
+
+          <div class="bg-slate-800 rounded-xl p-4">
+            <p class="text-slate-400">
+              Searching nearby responders...
+            </p>
+          </div>
+
         </div>
 
       </div>
 
+      <!-- CARD 3 -->
+      <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
 
-      <div class="grid md:grid-cols-3 gap-6">
+        <div class="flex justify-between items-center mb-6">
 
-        <!-- Card 1 -->
-        <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
+          <h3 class="text-xl font-semibold">
+            Live Map Tracking
+          </h3>
 
-          <div class="flex justify-between items-center mb-6">
-            <h3 class="text-xl font-semibold">Emergency Alert</h3>
-            <div class="bg-red-500/20 p-3 rounded-xl">🚨</div>
-          </div>
-
-          <p id="statusText" class="text-slate-300 leading-8">
-            Waiting for emergency trigger...
-          </p>
-
-        </div>
-
-
-        <!-- Card 2 -->
-        <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
-
-          <div class="flex justify-between items-center mb-6">
-            <h3 class="text-xl font-semibold">Nearby Helpers</h3>
-            <div class="bg-green-500/20 p-3 rounded-xl">🧑‍🚒</div>
-          </div>
-
-          <div class="space-y-4">
-
-            <div class="bg-slate-800 rounded-xl p-4 flex justify-between items-center">
-              <div>
-                <p class="font-semibold">Rahul Sharma</p>
-                <p class="text-sm text-slate-400">Medical Volunteer</p>
-              </div>
-              <span class="text-green-400">1.2km</span>
-            </div>
-
-            <div class="bg-slate-800 rounded-xl p-4 flex justify-between items-center">
-              <div>
-                <p class="font-semibold">Simran Kaur</p>
-                <p class="text-sm text-slate-400">Nearby Responder</p>
-              </div>
-              <span class="text-yellow-400">2km</span>
-            </div>
-
-            <div class="bg-slate-800 rounded-xl p-4 flex justify-between items-center">
-              <div>
-                <p class="font-semibold">Aman Verma</p>
-                <p class="text-sm text-slate-400">First Aid Expert</p>
-              </div>
-              <span class="text-red-400">2.8km</span>
-            </div>
-
+          <div class="bg-blue-500/20 p-3 rounded-xl">
+            📍
           </div>
 
         </div>
 
-
-        <!-- Card 3 -->
-        <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
-
-          <div class="flex justify-between items-center mb-6">
-            <h3 class="text-xl font-semibold">Ambulance Tracking</h3>
-            <div class="bg-blue-500/20 p-3 rounded-xl">🚑</div>
-          </div>
-
-          <div class="h-72 rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 flex items-center justify-center border border-slate-700 text-slate-400">
-            Google Maps Integration Here
-          </div>
-
-        </div>
+        <div
+          id="map"
+          class="w-full h-72 rounded-2xl overflow-hidden border border-slate-700"
+        ></div>
 
       </div>
 
     </div>
 
-  </section>
+  </div>
 
+</section>
 
-  <!-- Chain Flow -->
-  <section class="px-6 md:px-16 py-16">
+<!-- FLOW -->
+<section class="px-6 md:px-16 py-16">
 
-    <div class="text-center mb-14">
+  <div class="text-center mb-14">
 
-      <h2 class="text-5xl font-bold mb-4">
-        Chain Reaction Flow
-      </h2>
+    <h2 class="text-5xl font-bold mb-4">
+      Chain Reaction Flow
+    </h2>
 
-      <p class="text-slate-400 max-w-2xl mx-auto">
-        Every action automatically triggers the next life-saving response.
+    <p class="text-slate-400 max-w-2xl mx-auto">
+      Every action automatically triggers the next life-saving response.
+    </p>
+
+  </div>
+
+  <div class="grid md:grid-cols-4 gap-8">
+
+    <div class="glass rounded-3xl p-8 text-center">
+      <div class="text-5xl mb-5">📍</div>
+      <h3 class="text-2xl font-bold mb-3">SOS Triggered</h3>
+      <p class="text-slate-400">
+        Emergency location detected instantly.
       </p>
-
     </div>
 
-
-    <div class="grid md:grid-cols-4 gap-8">
-
-      <div class="glass rounded-3xl p-8 text-center hover:-translate-y-2 transition duration-300">
-        <div class="text-5xl mb-5">📍</div>
-        <h3 class="text-2xl font-bold mb-3">SOS Triggered</h3>
-        <p class="text-slate-400">Emergency location detected instantly.</p>
-      </div>
-
-
-      <div class="glass rounded-3xl p-8 text-center hover:-translate-y-2 transition duration-300">
-        <div class="text-5xl mb-5">📢</div>
-        <h3 class="text-2xl font-bold mb-3">Helpers Alerted</h3>
-        <p class="text-slate-400">Nearby responders receive live notifications.</p>
-      </div>
-
-
-      <div class="glass rounded-3xl p-8 text-center hover:-translate-y-2 transition duration-300">
-        <div class="text-5xl mb-5">🚑</div>
-        <h3 class="text-2xl font-bold mb-3">Ambulance Sent</h3>
-        <p class="text-slate-400">Fastest route automatically generated.</p>
-      </div>
-
-
-      <div class="glass rounded-3xl p-8 text-center hover:-translate-y-2 transition duration-300">
-        <div class="text-5xl mb-5">🏥</div>
-        <h3 class="text-2xl font-bold mb-3">Hospital Ready</h3>
-        <p class="text-slate-400">Hospital receives patient information instantly.</p>
-      </div>
-
+    <div class="glass rounded-3xl p-8 text-center">
+      <div class="text-5xl mb-5">📢</div>
+      <h3 class="text-2xl font-bold mb-3">Helpers Alerted</h3>
+      <p class="text-slate-400">
+        Nearby responders receive live notifications.
+      </p>
     </div>
 
-  </section>
+    <div class="glass rounded-3xl p-8 text-center">
+      <div class="text-5xl mb-5">🚑</div>
+      <h3 class="text-2xl font-bold mb-3">Ambulance Sent</h3>
+      <p class="text-slate-400">
+        Fastest route automatically generated.
+      </p>
+    </div>
 
+    <div class="glass rounded-3xl p-8 text-center">
+      <div class="text-5xl mb-5">🏥</div>
+      <h3 class="text-2xl font-bold mb-3">Hospital Ready</h3>
+      <p class="text-slate-400">
+        Hospital receives patient information instantly.
+      </p>
+    </div>
 
-  <!-- Footer -->
-  <footer class="px-6 md:px-16 py-10 border-t border-slate-800 text-center text-slate-500">
-    Built for Hackathon Theme — Chain Reaction ⚡
-  </footer>
+  </div>
 
+</section>
 
-  <!-- JavaScript -->
-  <script>
+<!-- FOOTER -->
+<footer class="px-6 md:px-16 py-10 border-t border-slate-800 text-center text-slate-500">
+  Built for Hackathon Theme — Chain Reaction ⚡
+</footer>
 
-    function triggerSOS() {
+<!-- SCRIPT -->
+<script>
 
-      const status = document.getElementById('statusText');
+let map;
+let currentLat;
+let currentLng;
 
-      status.innerHTML = `
-        🚨 Emergency Triggered <br><br>
-        📍 GPS Location Captured <br>
-        📢 Nearby Helpers Alerted <br>
-        🚑 Ambulance Dispatched <br>
-        🏥 Hospital Informed <br>
-        👨‍👩‍👧 Family Contacted
-      `;
+// LOAD MAP
+window.addEventListener("load", () => {
 
-      alert('SOS ACTIVATED');
+  if (!navigator.geolocation) {
+    alert("Geolocation not supported");
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(
+
+    async (position) => {
+
+      currentLat = position.coords.latitude;
+      currentLng = position.coords.longitude;
+
+      // CREATE MAP
+      map = L.map("map").setView(
+        [currentLat, currentLng],
+        15
+      );
+
+      // TILE
+      L.tileLayer(
+        "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        {
+          attribution: "&copy; OpenStreetMap contributors"
+        }
+      ).addTo(map);
+
+      // USER MARKER
+      L.marker([currentLat, currentLng])
+        .addTo(map)
+        .bindPopup("📍 Your Location")
+        .openPopup();
+
+      // SAVE LOCATION
+      if(isLoggedIn){ 
+
+      await fetch("/update-location", {
+
+        method: "POST",
+
+        headers: {
+          "Content-Type": "application/json"
+        },
+
+        body: JSON.stringify({
+          lat: currentLat,
+          lng: currentLng
+        })
+
+      });
+
+       } 
+
+      // GET HELPERS
+      const response = await fetch(
+        `/nearby-helpers?lat=${currentLat}&lng=${currentLng}`
+      );
+
+      const helpers = await response.json();
+
+      const helpersList =
+        document.getElementById("helpersList");
+
+      helpersList.innerHTML = "";
+
+      if (helpers.length === 0) {
+
+        helpersList.innerHTML = `
+          <div class="bg-slate-800 rounded-xl p-4 text-slate-400">
+            No nearby helpers found
+          </div>
+        `;
+
+      } else {
+
+        helpers.forEach((helper) => {
+
+          // MAP MARKER
+          L.marker([
+            helper.location.lat,
+            helper.location.lng
+          ])
+          .addTo(map)
+          .bindPopup(helper.name);
+
+          // CARD
+          helpersList.innerHTML += `
+
+            <div class="bg-slate-800 rounded-xl p-4 flex justify-between items-center">
+
+              <div>
+                <p class="font-semibold">
+                  ${helper.name}
+                </p>
+
+                <p class="text-sm text-slate-400">
+                  ${helper.role}
+                </p>
+              </div>
+
+              <span class="text-green-400">
+                ${helper.distance} km
+              </span>
+
+            </div>
+
+          `;
+
+        });
+
+      }
+
+    },
+
+    (error) => {
+
+      console.log(error);
+
+      alert("Please allow location access");
+
     }
 
-  </script>
+  );
+
+});
+
+// SOS BUTTON
+async function triggerSOS(){
+
+  const status =
+    document.getElementById("statusText");
+
+  status.innerHTML = `
+    🚨 Emergency Triggered <br><br>
+    📍 GPS Location Captured <br>
+    📢 Nearby Helpers Alerted <br>
+    🚑 Ambulance Dispatched <br>
+    🏥 Hospital Informed <br>
+    👨‍👩‍👧 Family Contacted
+  `;
+
+  // EMERGENCY MARKER
+  L.marker([currentLat, currentLng])
+    .addTo(map)
+    .bindPopup("🚨 Emergency Location")
+    .openPopup();
+
+  alert("SOS ACTIVATED");
+
+}
+
+</script>
 
 </body>
 </html>
