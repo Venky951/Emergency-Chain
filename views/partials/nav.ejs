@@ -1,7 +1,5 @@
-<body class="text-white min-h-screen bg-slate-950">
-
-  <!-- Navbar -->
-  <nav class="flex justify-between items-center px-8 py-6">
+<!-- Navbar -->
+<nav class="flex justify-between items-center px-8 py-6">
 
     <!-- Logo Section -->
     <div>
@@ -41,13 +39,13 @@
         Dashboard
       </a>
 
-      <a href="/logout"
-        class="bg-white text-black hover:bg-slate-200 transition px-6 py-3 rounded-xl font-semibold"
-      >
-        Logout
-      </a>
+      <form action="/logout" method="POST" class="m-0">
+        <button type="submit"
+          class="bg-white text-black hover:bg-slate-200 transition px-6 py-3 rounded-xl font-semibold"
+        >
+          Logout
+        </button>
+      </form>
       </div>
       <% } %>
   </nav>
-
-</body>

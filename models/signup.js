@@ -1,91 +1,176 @@
 const mongoose = require("mongoose");
 
+/**
+ * Enhanced User Schema with geospatial support
+ * Tracks user location, role, and availability status
+ * Compatible with both lat/lng and GeoJSON formats
+ */
 const userSchema = new mongoose.Schema(
   {
+    // User info
     name: {
       type: String,
-      required: [true, "Please provide a name"],
+      required: true,
       trim: true,
-      maxlength: [100, "Name cannot exceed 100 characters"],
     },
 
     phone: {
       type: String,
-      required: [true, "Please provide a phone number"],
-      match: [
-        /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/,
-        "Please provide a valid phone number",
-      ],
+      required: true,
+      trim: true,
     },
 
     email: {
       type: String,
-      required: [true, "Please provide an email"],
+      required: true,
       unique: true,
       lowercase: true,
-      match: [
-        /^[a-zA-Z0-9._-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/,
-        "Please provide a valid email",
-      ],
+      trim: true,
     },
 
     password: {
       type: String,
-      required: [true, "Please provide a password"],
-      minlength: [6, "Password must be at least 6 characters"],
+      required: true,
       select: false, // Don't return password by default
     },
 
     emergencyContact: {
       type: String,
-      required: [true, "Please provide an emergency contact number"],
-      match: [
-        /^[+]?[(]?[0-9]{3}[)]?[-\s.]?[0-9]{3}[-\s.]?[0-9]{4,6}$/,
-        "Please provide a valid emergency contact number",
-      ],
+      required: true,
+      trim: true,
     },
 
+    // User role
     role: {
       type: String,
-      enum: {
-        values: ["citizen", "volunteer", "ambulance_driver", "hospital_staff"],
-        message: "Please select a valid role",
+      enum: ["citizen", "volunteer", "ambulance_driver", "hospital_staff"],
+      default: "citizen",
+      index: true,
+    },
+
+    // Location data stored in a single normalized shape
+    location: {
+      latitude: { type: Number, default: null },
+      longitude: { type: Number, default: null },
+      accuracy: { type: Number, default: null },
+      updatedAt: { type: Date, default: Date.now },
+    },
+
+    geoLocation: {
+      type: {
+        type: String,
+        enum: ["Point"],
       },
-      required: [true, "Please select a role"],
+      coordinates: [Number],
     },
 
-    termsAgreed: {
-      type: Boolean,
-      required: [true, "Please agree to the terms"],
-      default: false,
-    },
-    latitude: {
-      type: Number,
-      default: null,
-    },
-
-    longitude: {
-      type: Number,
-      default: null,
-    },
-
-    lastLocationUpdated: {
+    // Timestamps
+    lastSeen: {
       type: Date,
       default: Date.now,
     },
+
+    lastLocationUpdate: {
+      type: Date,
+      default: null,
+    },
+
+    // Status
     isActive: {
+      type: Boolean,
+      default: true,
+      index: true,
+    },
+
+    isAvailable: {
       type: Boolean,
       default: true,
     },
 
-    createdAt: {
-      type: Date,
-      default: Date.now,
+    // Permissions
+    locationPermission: {
+      type: Boolean,
+      default: false,
     },
+
+    notificationPermission: {
+      type: Boolean,
+      default: false,
+    },
+
+    termsAgreed: {
+      type: Boolean,
+      default: false,
+    },
+
+    // Offline sync tracking
+    pendingSyncCount: {
+      type: Number,
+      default: 0,
+    },
+
+    // Metadata
+    deviceId: String,
+    userAgent: String,
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
-// Index for faster queries
+// ✅ CRITICAL: Geospatial index for efficient location queries
+userSchema.index({ geoLocation: "2dsphere" }, { sparse: true });
+userSchema.index({ role: 1, isActive: 1 });
+userSchema.index({ lastSeen: -1 });
+
+/**
+ * Find nearby users (helpers)
+ * @param {Number} longitude
+ * @param {Number} latitude
+ * @param {Number} maxDistance in meters
+ * @param {Array} excludeIds user IDs to exclude
+ */
+userSchema.statics.findNearby = function (
+  longitude,
+  latitude,
+  maxDistance = 5000,
+  excludeIds = [],
+) {
+  return this.find({
+    _id: { $nin: excludeIds },
+    "geoLocation.coordinates.0": { $ne: null },
+    isActive: true,
+    geoLocation: {
+      $near: {
+        $geometry: {
+          type: "Point",
+          coordinates: [longitude, latitude],
+        },
+        $maxDistance: maxDistance,
+      },
+    },
+  })
+    .select("name role phone location lastSeen isAvailable")
+    .lean();
+};
+
+/**
+ * Update user location in the normalized structure
+ */
+userSchema.methods.updateLocation = function (
+  latitude,
+  longitude,
+  accuracy = null,
+) {
+  this.location.latitude = latitude;
+  this.location.longitude = longitude;
+  this.location.accuracy = accuracy;
+  this.location.updatedAt = new Date();
+
+  this.geoLocation.coordinates = [longitude, latitude];
+  this.lastLocationUpdate = new Date();
+  this.lastSeen = new Date();
+  return this.save();
+};
 
 module.exports = mongoose.model("User", userSchema);

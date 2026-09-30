@@ -147,39 +147,7 @@
 
   </div>
 
-  <!-- Role -->
-  <div>
-
-    <label class="block mb-2 text-slate-300">
-      Select Role
-    </label>
-
-    <select
-      name="role"
-      class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
-      required
-    >
-
-      <option value="">Select a role</option>
-      <option value="citizen" <%= typeof oldInput !== 'undefined' && oldInput.role === 'citizen' ? 'selected' : '' %>>
-        Citizen
-      </option>
-
-      <option value="volunteer" <%= typeof oldInput !== 'undefined' && oldInput.role === 'volunteer' ? 'selected' : '' %>>
-        Volunteer
-      </option>
-
-      <option value="ambulance_driver" <%= typeof oldInput !== 'undefined' && oldInput.role === 'ambulance_driver' ? 'selected' : '' %>>
-        Ambulance Driver
-      </option>
-
-      <option value="hospital_staff" <%= typeof oldInput !== 'undefined' && oldInput.role === 'hospital_staff' ? 'selected' : '' %>>
-        Hospital Staff
-      </option>
-
-    </select>
-
-  </div>
+  <input type="hidden" name="role" value="citizen" />
 
   <!-- Terms -->
   <label class="flex items-start gap-3 text-slate-400 text-sm">

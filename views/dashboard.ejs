@@ -1,0 +1,544 @@
+<%- include('partials/head', { title: 'Dashboard - EmergencyChain' }) %>
+
+<body class="bg-slate-950 text-white min-h-screen">
+
+<%- include('partials/nav') %>
+
+<!-- HEADER -->
+<section class="px-6 md:px-16 py-6 border-b border-slate-800">
+  <div class="flex justify-between items-center flex-wrap gap-4">
+    <div>
+      <h1 class="text-4xl font-bold">Dashboard</h1>
+      <p class="text-slate-400">Welcome, <span id="userName" class="font-semibold text-red-400"><%= user.name %></span></p>
+    </div>
+    <div class="flex gap-2">
+      <div id="connectionStatus" class="flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/20 text-green-400">
+        <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+        Connected
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOS BUTTONS SECTION -->
+<section class="px-6 md:px-16 py-10">
+  <div class="grid md:grid-cols-3 gap-6">
+
+    <!-- LEVEL 1: EMERGENCY CONTACTS -->
+    <div class="glass rounded-3xl p-8 text-center cursor-pointer hover:scale-105 transition transform" onclick="triggerSOS(1)">
+      <div class="text-6xl mb-4">🚨</div>
+      <h2 class="text-2xl font-bold mb-2">Level 1: Emergency</h2>
+      <p class="text-slate-300 mb-4">
+        Alert emergency contacts
+      </p>
+      <div class="text-sm text-slate-400 mb-6">
+        ⏱️ 10 min expiry
+      </div>
+      <button class="w-full bg-red-600 hover:bg-red-700 py-3 rounded-xl font-bold transition">
+        Trigger Level 1
+      </button>
+    </div>
+
+    <!-- LEVEL 2: NEARBY HELPERS -->
+    <div class="glass rounded-3xl p-8 text-center cursor-pointer hover:scale-105 transition transform" onclick="triggerSOS(2)">
+      <div class="text-6xl mb-4">🔔</div>
+      <h2 class="text-2xl font-bold mb-2">Level 2: Nearby</h2>
+      <p class="text-slate-300 mb-4">
+        Alert helpers within 500m
+      </p>
+      <div class="text-sm text-slate-400 mb-6">
+        ⏱️ 20 min expiry
+      </div>
+      <button class="w-full bg-orange-600 hover:bg-orange-700 py-3 rounded-xl font-bold transition">
+        Trigger Level 2
+      </button>
+    </div>
+
+    <!-- LEVEL 3: CRITICAL -->
+    <div class="glass rounded-3xl p-8 text-center cursor-pointer hover:scale-105 transition transform" onclick="triggerSOS(3)">
+      <div class="text-6xl mb-4">🆘</div>
+      <h2 class="text-2xl font-bold mb-2">Level 3: Critical</h2>
+      <p class="text-slate-300 mb-4">
+        Alert all nearby users
+      </p>
+      <div class="text-sm text-slate-400 mb-6">
+        ⏱️ 30 min expiry
+      </div>
+      <button class="w-full bg-red-700 hover:bg-red-800 py-3 rounded-xl font-bold transition">
+        Trigger Level 3
+      </button>
+    </div>
+
+  </div>
+</section>
+
+<!-- MAP & STATUS -->
+<section class="px-6 md:px-16 py-10">
+  <div class="grid md:grid-cols-3 gap-6">
+
+    <!-- MAP -->
+    <div class="md:col-span-2 glass rounded-3xl p-8">
+      <h2 class="text-2xl font-bold mb-4">📍 Your Location</h2>
+      <div id="map" class="w-full h-96 rounded-2xl overflow-hidden border border-slate-700 bg-slate-900"></div>
+      <p class="text-xs text-slate-500 mt-4">
+        Location updated every 10 seconds • <span id="locationStatus" class="text-green-400">Tracking</span>
+      </p>
+    </div>
+
+    <!-- STATUS CARDS -->
+    <div class="space-y-6">
+
+      <!-- YOUR PROFILE -->
+      <div class="glass rounded-3xl p-8">
+        <h3 class="text-xl font-bold mb-4">Profile</h3>
+        <div class="space-y-3 text-sm">
+          <div>
+            <p class="text-slate-400">Name</p>
+            <p class="font-semibold"><%= user.name %></p>
+          </div>
+          <div>
+            <p class="text-slate-400">Role</p>
+            <p class="font-semibold capitalize"><%= user.role %></p>
+          </div>
+          <div>
+            <p class="text-slate-400">Phone</p>
+            <p class="font-semibold"><%= user.phone || 'Not set' %></p>
+          </div>
+          <div>
+            <p class="text-slate-400">Status</p>
+            <p class="font-semibold text-green-400">🟢 Active</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- QUICK STATS -->
+      <div class="glass rounded-3xl p-8">
+        <h3 class="text-xl font-bold mb-4">Stats</h3>
+        <div class="space-y-3">
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400">Nearby Helpers</span>
+            <span id="nearbyCount" class="font-bold text-xl">0</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <span class="text-slate-400">Active Alerts</span>
+            <span id="alertsCount" class="font-bold text-xl">0</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+</section>
+
+<!-- NEARBY HELPERS -->
+<section class="px-6 md:px-16 py-10">
+  <div class="glass rounded-3xl p-8">
+    <h2 class="text-2xl font-bold mb-6">👥 Nearby Helpers</h2>
+    <div id="helpersList" class="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="bg-slate-800 rounded-xl p-4 text-slate-400">
+        Loading helpers...
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- NEARBY ALERTS -->
+<section class="px-6 md:px-16 py-10">
+  <div class="glass rounded-3xl p-8">
+    <h2 class="text-2xl font-bold mb-6">🔔 Nearby Alerts</h2>
+    <div id="alertsList" class="space-y-4">
+      <div class="bg-slate-800 rounded-xl p-4 text-slate-400">
+        Monitoring for nearby emergencies...
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SCRIPTS -->
+<script src="/app.js"></script>
+
+<script>
+/**
+ * Dashboard - Authenticated Emergency Response
+ */
+
+let map;
+let userMarker;
+let helpersLayerGroup;
+let alertsLayerGroup;
+let currentLat;
+let currentLng;
+
+// ========================================
+// 1. MAP INITIALIZATION
+// ========================================
+
+async function initializeDashboardMap() {
+  try {
+    const defaultCenter = [20.5937, 78.9629];
+
+    map = L.map("map", {
+      center: defaultCenter,
+      zoom: 5,
+      dragging: !L.Browser.mobile,
+      tap: !L.Browser.mobile,
+    });
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      attribution:
+        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(map);
+
+    helpersLayerGroup = L.layerGroup().addTo(map);
+    alertsLayerGroup = L.layerGroup().addTo(map);
+
+    // Request exact location only inside the authenticated dashboard.
+    const location = await EC.locationTracker.getCurrentLocation();
+    currentLat = location.latitude;
+    currentLng = location.longitude;
+
+    console.log("[Dashboard] User location:", currentLat, currentLng);
+
+    userMarker = L.marker([currentLat, currentLng])
+      .addTo(map)
+      .bindPopup("📍 Your Location");
+    map.setView([currentLat, currentLng], 15);
+
+    console.log("[Dashboard] Map initialized");
+
+    // Update user location on server
+    await fetch("/update-location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ latitude: currentLat, longitude: currentLng }),
+    });
+
+    return true;
+
+  } catch (err) {
+    console.warn("[Dashboard] Location unavailable:", err.message);
+    document.getElementById("locationStatus").textContent =
+      "Location permission is required for location-dependent features.";
+    return false;
+  }
+}
+
+// ========================================
+// 2. LOCATION TRACKING
+// ========================================
+
+async function startLocationTracking() {
+  try {
+    // Request notification permission
+    await EC.requestNotificationPermission();
+
+    // Start continuous tracking (10s interval)
+    EC.locationTracker.startTracking(socket);
+
+    // Update map every 10s
+    setInterval(async () => {
+      try {
+        const location = await EC.locationTracker.getCurrentLocation();
+        currentLat = location.latitude;
+        currentLng = location.longitude;
+
+        // Update marker
+        if (userMarker) {
+          userMarker.setLatLng([currentLat, currentLng]);
+        }
+
+        // Update nearby helpers and alerts
+        await loadNearbyHelpers();
+        await loadNearbyAlerts();
+      } catch (err) {
+        console.error("[Dashboard] Location update error:", err);
+      }
+    }, 10000);
+
+    console.log("[Dashboard] Location tracking started");
+  } catch (err) {
+    console.error("[Dashboard] Tracking error:", err);
+  }
+}
+
+// ========================================
+// 3. LOAD NEARBY HELPERS
+// ========================================
+
+async function loadNearbyHelpers() {
+  try {
+    const res = await fetch(
+      `/nearby-users?latitude=${currentLat}&longitude=${currentLng}&radius=5`
+    );
+
+    if (!res.ok) {
+      console.log("[Dashboard] Nearby users fetch failed:", res.status);
+      return;
+    }
+
+    const payload = await res.json();
+    const helpers = payload.users || [];
+    document.getElementById("nearbyCount").textContent = helpers.length;
+
+    // Clear existing markers
+    helpersLayerGroup.clearLayers();
+
+    // Update UI
+    const helpersList = document.getElementById("helpersList");
+    helpersList.innerHTML = "";
+
+    if (!helpers.length) {
+      helpersList.innerHTML = `
+        <div class="bg-slate-800 rounded-xl p-4 text-slate-400 col-span-full">
+          No nearby helpers found
+        </div>
+      `;
+      return;
+    }
+
+    helpers.forEach((helper) => {
+      // Add marker
+      L.marker([helper.location.latitude, helper.location.longitude])
+        .addTo(helpersLayerGroup)
+        .bindPopup(`<strong>${helper.name}</strong><br>${helper.role}`);
+
+      // Add to list
+      helpersList.innerHTML += `
+        <div class="bg-slate-800 rounded-xl p-4 hover:bg-slate-700 transition">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <p class="font-bold">${helper.name}</p>
+              <p class="text-sm text-slate-400 capitalize">${helper.role}</p>
+            </div>
+            <span class="text-green-400 font-bold">${Number(helper.distance).toFixed(1)}km</span>
+          </div>
+          <div class="text-xs text-slate-500">
+            📍 <span id="lastSeen">${helper.lastSeen ? "Active now" : "Offline"}</span>
+          </div>
+        </div>
+      `;
+    });
+  } catch (err) {
+    console.error("[Dashboard] Load helpers error:", err);
+  }
+}
+
+// ========================================
+// 4. LOAD NEARBY ALERTS
+// ========================================
+
+async function loadNearbyAlerts() {
+  try {
+    const res = await fetch(
+      `/api/emergency/nearby-alerts?latitude=${currentLat}&longitude=${currentLng}`
+    );
+
+    if (!res.ok) {
+      console.log("[Dashboard] Nearby alerts fetch failed:", res.status);
+      return;
+    }
+
+    const alerts = await res.json();
+    document.getElementById("alertsCount").textContent = alerts.length;
+
+    // Clear existing markers
+    alertsLayerGroup.clearLayers();
+
+    // Update UI
+    const alertsList = document.getElementById("alertsList");
+    alertsList.innerHTML = "";
+
+    if (!alerts.length) {
+      alertsList.innerHTML = `
+        <div class="bg-slate-800 rounded-xl p-4 text-slate-400">
+          No nearby alerts right now
+        </div>
+      `;
+      return;
+    }
+
+    alerts.forEach((alert) => {
+      // Add marker
+      L.marker([alert.location.coordinates[1], alert.location.coordinates[0]])
+        .addTo(alertsLayerGroup)
+        .bindPopup(`<strong>Level ${alert.level} Alert</strong><br>${alert.reason}`);
+
+      // Add to list
+      const levelEmoji = alert.level === 3 ? "🆘" : alert.level === 2 ? "🔔" : "⚠️";
+      const levelColor = alert.level === 3 ? "red" : alert.level === 2 ? "orange" : "yellow";
+
+      alertsList.innerHTML += `
+        <div class="bg-${levelColor}-900/30 border border-${levelColor}-500/50 rounded-xl p-4">
+          <div class="flex justify-between items-start mb-2">
+            <div>
+              <p class="font-bold">${levelEmoji} Level ${alert.level} Alert</p>
+              <p class="text-sm text-slate-300">${alert.reason}</p>
+            </div>
+            <button onclick="acceptAlert('${alert._id}')" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm font-bold transition">
+              Help
+            </button>
+          </div>
+          <div class="text-xs text-slate-400">
+            👤 ${alert.userName} • ⏱️ ${alert.expiresAt ? 'Active' : 'Expired'}
+          </div>
+        </div>
+      `;
+    });
+  } catch (err) {
+    console.error("[Dashboard] Load alerts error:", err);
+  }
+}
+
+// ========================================
+// 5. SOS TRIGGER
+// ========================================
+
+async function triggerSOS(level) {
+  try {
+    if (!currentLat || !currentLng) {
+      alert("Getting your location...");
+      return;
+    }
+
+    const endpoints = {
+      1: "/api/emergency/level1",
+      2: "/api/emergency/level2",
+      3: "/api/emergency/level3",
+    };
+
+    const res = await fetch(endpoints[level], {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lat: currentLat,
+        lng: currentLng,
+        reason: `Emergency - Level ${level}`,
+        message: `Urgent help needed at location`,
+      }),
+    });
+
+    if (!res.ok) {
+      alert("Error triggering SOS: " + res.statusText);
+      return;
+    }
+
+    const data = await res.json();
+    alert(`✅ Level ${level} SOS triggered successfully!\nAlert ID: ${data.alertId}`);
+
+    // Show notification
+    EC.showNotification(`🚨 SOS Level ${level} Triggered`, {
+      body: `Emergency alert sent to ${level === 1 ? "emergency contacts" : level === 2 ? "nearby helpers" : "all users"}`,
+    });
+
+  } catch (err) {
+    console.error("[Dashboard] SOS error:", err);
+    alert("Error: " + err.message);
+  }
+}
+
+// ========================================
+// 6. ACCEPT ALERT
+// ========================================
+
+async function acceptAlert(alertId) {
+  try {
+    const res = await fetch("/api/emergency/accept", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ alertId }),
+    });
+
+    if (!res.ok) {
+      alert("Error accepting alert: " + res.statusText);
+      return;
+    }
+
+    alert("✅ You have accepted this alert! Help is on the way.");
+    await loadNearbyAlerts();
+  } catch (err) {
+    console.error("[Dashboard] Accept error:", err);
+  }
+}
+
+// ========================================
+// 7. SOCKET.IO REAL-TIME UPDATES
+// ========================================
+
+const socket = EC.initializeSocket();
+
+if (socket) {
+  socket.on("sos-level-1", (data) => {
+    console.log("[Socket] Level 1 SOS received");
+    EC.showNotification("🚨 Emergency Alert", data.reason);
+  });
+
+  socket.on("sos-level-2", (data) => {
+    console.log("[Socket] Level 2 SOS received");
+    EC.showNotification("🔔 Help Needed Nearby", data.reason);
+    loadNearbyAlerts();
+  });
+
+  socket.on("sos-level-3", (data) => {
+    console.log("[Socket] Level 3 SOS received");
+    EC.showNotification("🆘 CRITICAL EMERGENCY", data.userName + " needs immediate help!");
+    loadNearbyAlerts();
+  });
+
+  socket.on("alert-accepted", (data) => {
+    console.log("[Socket] Alert accepted:", data);
+    loadNearbyAlerts();
+  });
+}
+
+// ========================================
+// 8. CONNECTION STATUS
+// ========================================
+
+window.addEventListener("online", () => {
+  document.getElementById("connectionStatus").innerHTML = `
+    <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
+    Connected
+  `;
+  document.getElementById("connectionStatus").classList.remove("bg-red-500/20", "text-red-400");
+  document.getElementById("connectionStatus").classList.add("bg-green-500/20", "text-green-400");
+});
+
+window.addEventListener("offline", () => {
+  document.getElementById("connectionStatus").innerHTML = `
+    <div class="w-2 h-2 rounded-full bg-red-400"></div>
+    Offline
+  `;
+  document.getElementById("connectionStatus").classList.remove("bg-green-500/20", "text-green-400");
+  document.getElementById("connectionStatus").classList.add("bg-red-500/20", "text-red-400");
+});
+
+// ========================================
+// 9. INITIALIZATION
+// ========================================
+
+// Initialize when page loads
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", async () => {
+    const locationReady = await initializeDashboardMap();
+    if (!locationReady) return;
+    await startLocationTracking();
+    await loadNearbyHelpers();
+    await loadNearbyAlerts();
+  });
+} else {
+  (async () => {
+    const locationReady = await initializeDashboardMap();
+    if (!locationReady) return;
+    await startLocationTracking();
+    await loadNearbyHelpers();
+    await loadNearbyAlerts();
+  })();
+}
+
+console.log("[Dashboard] Loaded");
+</script>
+
+</body>
+</html>

@@ -1,0 +1,274 @@
+<%- include('partials/head', { title: 'EmergencyChain - Intelligent Emergency Response System' }) %>
+
+<body class="bg-slate-950 text-white min-h-screen">
+
+<%- include('partials/nav') %>
+
+
+<section class="px-6 md:px-16 py-10">
+
+  <div class="glass rounded-3xl p-8 max-w-5xl mx-auto">
+
+    <h1 class="text-4xl font-bold mb-2">Emergency SOS System</h1>
+
+    <p id="statusTextTop" class="text-green-400 mb-6">
+      System Ready...
+    </p>
+
+    <!-- ✅ LEVELS FIRST -->
+
+    <!-- LEVEL 1 -->
+    <div class="bg-slate-900 p-6 rounded-2xl mb-4">
+      <h2 class="text-xl font-bold text-green-400">🟢 Level 1</h2>
+
+      <button onclick="level1()" class="bg-green-500 px-4 py-2 rounded-xl font-bold mt-3">
+        Trigger
+      </button>
+    </div>
+
+    <!-- LEVEL 2 -->
+    <div class="bg-slate-900 p-6 rounded-2xl mb-4">
+      <h2 class="text-xl font-bold text-orange-400">🟠 Level 2</h2>
+
+      <select id="reason" class="w-full mt-3 p-3 rounded-xl bg-slate-800">
+        <option>Vehicle broke down</option>
+        <option>Someone chasing me</option>
+        <option>Medical emergency</option>
+        <option>Feeling unsafe</option>
+        <option>Accident nearby</option>
+      </select>
+
+      <textarea
+        id="msg"
+        class="w-full mt-3 p-3 rounded-xl bg-slate-800"
+        placeholder="Message..."
+      ></textarea>
+
+      <button onclick="level2()" class="bg-orange-500 px-4 py-2 rounded-xl font-bold mt-3">
+        Trigger
+      </button>
+    </div>
+
+    <!-- LEVEL 3 -->
+    <div class="bg-slate-900 p-6 rounded-2xl mb-6">
+      <h2 class="text-xl font-bold text-red-400">🔴 Level 3</h2>
+
+      <button onclick="level3()" class="bg-red-500 px-6 py-3 rounded-xl font-bold mt-3">
+        SOS
+      </button>
+    </div>
+</div>
+</section>
+<section class="px-6 md:px-16 py-10">
+  <div class="glass rounded-3xl p-8">
+    <div class="flex justify-between items-center mb-8 flex-wrap gap-4">
+      <div>
+        <h2 class="text-3xl font-bold mb-2">Emergency SOS</h2>
+        <p class="text-slate-400">This release supports authenticated SOS requests and location updates. Dispatch and responder notification flows are intentionally limited to the current backend scope.</p>
+      </div>
+      <div class="bg-green-500/20 text-green-400 px-4 py-2 rounded-full text-sm">● Ready</div>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-xl font-semibold">Status</h3>
+          <div class="bg-red-500/20 p-3 rounded-xl">🚨</div>
+        </div>
+        <p id="statusTextLive" class="text-slate-300 leading-8">Waiting for an SOS request...</p>
+      </div>
+
+      <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-xl font-semibold">Location</h3>
+          <div class="bg-blue-500/20 p-3 rounded-xl">📍</div>
+        </div>
+        <p class="text-slate-300 leading-8">The app records your current coordinates only after the user grants geolocation access and the request is authenticated.</p>
+      </div>
+
+      <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
+        <div class="flex justify-between items-center mb-6">
+          <h3 class="text-xl font-semibold">Current Scope</h3>
+          <div class="bg-amber-500/20 p-3 rounded-xl">🛡️</div>
+        </div>
+        <p class="text-slate-300 leading-8">This page initiates an authenticated SOS event and validates the request payload; it does not simulate ambulance or hospital dispatch.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="px-6 md:px-16 py-16">
+  <div class="text-center mb-14">
+    <h2 class="text-5xl font-bold mb-4">Current Safety Flow</h2>
+    <p class="text-slate-400 max-w-2xl mx-auto">The app validates the user session, accepts a valid location, and records the secure SOS request for this release.</p>
+  </div>
+
+  <div class="grid md:grid-cols-3 gap-8">
+    <div class="glass rounded-3xl p-8 text-center">
+      <div class="text-5xl mb-5">🔐</div>
+      <h3 class="text-2xl font-bold mb-3">Authenticate</h3>
+      <p class="text-slate-400">The request must come from a signed-in citizen session.</p>
+    </div>
+
+    <div class="glass rounded-3xl p-8 text-center">
+      <div class="text-5xl mb-5">📍</div>
+      <h3 class="text-2xl font-bold mb-3">Validate Location</h3>
+      <p class="text-slate-400">Latitude and longitude are checked before the SOS request is accepted.</p>
+    </div>
+
+    <div class="glass rounded-3xl p-8 text-center">
+      <div class="text-5xl mb-5">📝</div>
+      <h3 class="text-2xl font-bold mb-3">Record Request</h3>
+      <p class="text-slate-400">The current backend records the emergency request without claiming downstream dispatch actions.</p>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer class="px-6 md:px-16 py-10 border-t border-slate-800 text-center text-slate-500">
+  Built for Hackathon Theme — Chain Reaction ⚡
+</footer>
+<script src="/socket.io/socket.io.js"></script>
+<!-- FIXED EMERGENCY PAGE SCRIPT -->
+
+<script>
+let map;
+let currentLat;
+let currentLng;
+let socket;
+
+let helperMarkers = []; // ✅ FIX: store markers
+
+// INIT
+window.addEventListener("load", () => {
+  if (!navigator.geolocation) {
+    const statusEl = document.getElementById("statusTextLive");
+    if (statusEl) {
+      statusEl.textContent = "Geolocation is not supported in this browser.";
+    }
+    return;
+  }
+
+  navigator.geolocation.getCurrentPosition(async (position) => {
+    currentLat = position.coords.latitude;
+    currentLng = position.coords.longitude;
+
+    const statusEl = document.getElementById("statusTextLive");
+    if (statusEl) {
+      statusEl.textContent = "Location captured. The authenticated SOS request can now be submitted.";
+    }
+
+    try {
+      await fetch("/update-location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ latitude: currentLat, longitude: currentLng }),
+      });
+    } catch (error) {
+      console.error("Location update failed:", error);
+    }
+  }, (error) => {
+    const statusEl = document.getElementById("statusTextLive");
+    if (statusEl) {
+      statusEl.textContent = "Location access is required to create a valid SOS request.";
+    }
+    console.error("Geolocation error:", error);
+  });
+});
+
+async function level1() {
+  const statusEl = document.getElementById("statusTextLive");
+  if (statusEl) {
+    statusEl.textContent = "Submitting a Level 1 SOS request...";
+  }
+
+  const response = await fetch("/trigger-sos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      level: 1,
+      latitude: currentLat,
+      longitude: currentLng,
+      reason: "Emergency - Level 1",
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    if (statusEl) {
+      statusEl.textContent = data.error || "Unable to submit SOS request.";
+    }
+    return;
+  }
+
+  if (statusEl) {
+    statusEl.textContent = "Level 1 request submitted successfully.";
+  }
+}
+
+async function level2() {
+  const reason = document.getElementById("reason").value;
+  const message = document.getElementById("msg").value;
+  const statusEl = document.getElementById("statusTextLive");
+
+  if (statusEl) {
+    statusEl.textContent = "Submitting a Level 2 SOS request...";
+  }
+
+  const response = await fetch("/trigger-sos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      level: 2,
+      reason,
+      message,
+      latitude: currentLat,
+      longitude: currentLng,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    if (statusEl) {
+      statusEl.textContent = data.error || "Unable to submit SOS request.";
+    }
+    return;
+  }
+
+  if (statusEl) {
+    statusEl.textContent = "Level 2 request submitted successfully.";
+  }
+}
+
+async function level3() {
+  const statusEl = document.getElementById("statusTextLive");
+  if (statusEl) {
+    statusEl.textContent = "Submitting a critical SOS request...";
+  }
+
+  const response = await fetch("/trigger-sos", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      level: 3,
+      reason: "Critical emergency",
+      latitude: currentLat,
+      longitude: currentLng,
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) {
+    if (statusEl) {
+      statusEl.textContent = data.error || "Unable to submit SOS request.";
+    }
+    return;
+  }
+
+  if (statusEl) {
+    statusEl.textContent = "Critical SOS request submitted successfully.";
+  }
+}
+</script>
+</body>
+</html>
