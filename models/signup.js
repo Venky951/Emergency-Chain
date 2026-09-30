@@ -154,6 +154,49 @@ userSchema.statics.findNearby = function (
     .lean();
 };
 
+userSchema.statics.findNearbyResponders = function ({
+  longitude,
+  latitude,
+  maxDistance,
+  updatedAfter,
+  excludeIds = [],
+}) {
+  return this.aggregate([
+    {
+      $geoNear: {
+        near: {
+          type: "Point",
+          coordinates: [longitude, latitude],
+        },
+        key: "geoLocation",
+        distanceField: "distanceMeters",
+        maxDistance,
+        spherical: true,
+        query: {
+          _id: { $nin: excludeIds },
+          role: {
+            $in: ["volunteer", "ambulance_driver", "hospital_staff"],
+          },
+          isActive: true,
+          isAvailable: true,
+          lastLocationUpdate: { $gte: updatedAfter },
+          "geoLocation.coordinates.0": { $ne: null },
+        },
+      },
+    },
+    {
+      $project: {
+        _id: 1,
+        name: 1,
+        role: 1,
+        isAvailable: 1,
+        lastLocationUpdate: 1,
+        distanceMeters: 1,
+      },
+    },
+  ]);
+};
+
 /**
  * Update user location in the normalized structure
  */

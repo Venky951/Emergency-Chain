@@ -133,5 +133,10 @@ router.patch(
   requireRole("citizen"),
   emergencyController.updateEmergencyStatus,
 );
+router.get(
+  "/api/emergency/:id/nearby-responders",
+  requireAuth,
+  emergencyController.getNearbyResponders,
+);
 
 module.exports = router;

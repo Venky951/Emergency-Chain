@@ -6,6 +6,16 @@ const { catchAsync, logError, logSOS, AppError } = require("../utils/logger");
 const { isValidCoordinates } = require("../utils/location");
 
 let ioInstance;
+const RESPONDER_SEARCH_RADIUS_KM = Number.isFinite(
+  Number(process.env.RESPONDER_SEARCH_RADIUS_KM),
+)
+  ? Math.max(0.1, Number(process.env.RESPONDER_SEARCH_RADIUS_KM))
+  : 5;
+const LOCATION_FRESHNESS_MINUTES = Number.isFinite(
+  Number(process.env.LOCATION_FRESHNESS_MINUTES),
+)
+  ? Math.max(1, Number(process.env.LOCATION_FRESHNESS_MINUTES))
+  : 10;
 
 exports.createEmergency = catchAsync(async (req, res) => {
   const citizenId = req.session.userId;
@@ -168,6 +178,79 @@ exports.updateEmergencyStatus = catchAsync(async (req, res) => {
       requestedStatus,
     });
     return res.status(500).json({ error: "Unable to update the emergency." });
+  }
+});
+
+exports.getNearbyResponders = catchAsync(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ error: "Emergency not found." });
+  }
+
+  const emergency = await Emergency.findById(req.params.id).select(
+    "citizen latitude longitude status",
+  );
+
+  if (!emergency) {
+    return res.status(404).json({ error: "Emergency not found." });
+  }
+
+  if (String(emergency.citizen) !== String(req.session.userId)) {
+    return res.status(403).json({ error: "You cannot access this emergency." });
+  }
+
+  if (!Emergency.getActiveStatuses().includes(emergency.status)) {
+    return res.status(409).json({
+      error: "Nearby responders are unavailable for this emergency status.",
+      status: emergency.status,
+    });
+  }
+
+  const latitude = Number(emergency.latitude);
+  const longitude = Number(emergency.longitude);
+  if (
+    !Number.isFinite(latitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    !Number.isFinite(longitude) ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    return res.status(400).json({ error: "Emergency location is invalid." });
+  }
+
+  try {
+    const updatedAfter = new Date(
+      Date.now() - LOCATION_FRESHNESS_MINUTES * 60 * 1000,
+    );
+    const responders = await User.findNearbyResponders({
+      longitude,
+      latitude,
+      maxDistance: RESPONDER_SEARCH_RADIUS_KM * 1000,
+      updatedAfter,
+      excludeIds: [emergency.citizen],
+    });
+
+    return res.status(200).json({
+      success: true,
+      radiusKm: RESPONDER_SEARCH_RADIUS_KM,
+      freshnessMinutes: LOCATION_FRESHNESS_MINUTES,
+      responders: responders.map((responder) => ({
+        id: responder._id,
+        role: responder.role,
+        displayName: responder.name,
+        distanceKm: Number((responder.distanceMeters / 1000).toFixed(2)),
+        isAvailable: responder.isAvailable,
+        locationUpdatedAt: responder.lastLocationUpdate,
+      })),
+    });
+  } catch (error) {
+    logError("Nearby responder lookup failed", error, {
+      emergencyId: emergency._id,
+      citizenId: req.session.userId,
+    });
+    return res.status(500).json({
+      error: "Unable to find nearby responders.",
+    });
   }
 });
 
