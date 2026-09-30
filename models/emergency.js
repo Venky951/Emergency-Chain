@@ -1,12 +1,29 @@
 const mongoose = require("mongoose");
 
+const VALID_TRANSITIONS = Object.freeze({
+  TRIGGERED: ["SEARCHING_FOR_HELP", "CANCELLED"],
+  SEARCHING_FOR_HELP: ["RESPONDER_ASSIGNED", "CANCELLED"],
+  RESPONDER_ASSIGNED: ["RESPONDER_ON_WAY", "CANCELLED"],
+  RESPONDER_ON_WAY: ["HELP_REACHED", "CANCELLED"],
+  HELP_REACHED: ["RESOLVED"],
+  RESOLVED: [],
+  CANCELLED: [],
+});
+
+const ACTIVE_STATUSES = [
+  "TRIGGERED",
+  "SEARCHING_FOR_HELP",
+  "RESPONDER_ASSIGNED",
+  "RESPONDER_ON_WAY",
+  "HELP_REACHED",
+];
+
 const emergencySchema = new mongoose.Schema(
   {
     citizen: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
-      index: true,
     },
 
     emergencyType: {
@@ -45,7 +62,7 @@ const emergencySchema = new mongoose.Schema(
 
     status: {
       type: String,
-      enum: ["TRIGGERED", "ASSIGNED", "RESOLVED", "CANCELLED"],
+      enum: Object.keys(VALID_TRANSITIONS),
       default: "TRIGGERED",
       index: true,
     },
@@ -56,11 +73,24 @@ const emergencySchema = new mongoose.Schema(
 );
 
 emergencySchema.index(
-  { citizen: 1, status: 1 },
+  { citizen: 1 },
   {
+    name: "citizen_active_emergency_unique",
     unique: true,
-    partialFilterExpression: { status: "TRIGGERED" },
+    partialFilterExpression: { status: { $in: ACTIVE_STATUSES } },
   },
 );
+
+emergencySchema.statics.canTransition = function (currentStatus, nextStatus) {
+  return VALID_TRANSITIONS[currentStatus]?.includes(nextStatus) || false;
+};
+
+emergencySchema.statics.getValidTransitions = function (currentStatus) {
+  return VALID_TRANSITIONS[currentStatus] || [];
+};
+
+emergencySchema.statics.getActiveStatuses = function () {
+  return ACTIVE_STATUSES;
+};
 
 module.exports = mongoose.model("Emergency", emergencySchema);

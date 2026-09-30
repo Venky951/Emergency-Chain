@@ -21,7 +21,7 @@
     <div class="bg-slate-900 p-6 rounded-2xl mb-4">
       <h2 class="text-xl font-bold text-green-400">🟢 Level 1</h2>
 
-      <button onclick="level1()" class="bg-green-500 px-4 py-2 rounded-xl font-bold mt-3">
+      <button id="level1Button" class="bg-green-500 px-4 py-2 rounded-xl font-bold mt-3">
         Trigger
       </button>
     </div>
@@ -44,7 +44,7 @@
         placeholder="Message..."
       ></textarea>
 
-      <button onclick="level2()" class="bg-orange-500 px-4 py-2 rounded-xl font-bold mt-3">
+      <button id="level2Button" class="bg-orange-500 px-4 py-2 rounded-xl font-bold mt-3">
         Trigger
       </button>
     </div>
@@ -53,7 +53,7 @@
     <div class="bg-slate-900 p-6 rounded-2xl mb-6">
       <h2 class="text-xl font-bold text-red-400">🔴 Level 3</h2>
 
-      <button onclick="level3()" class="bg-red-500 px-6 py-3 rounded-xl font-bold mt-3">
+      <button id="level3Button" class="bg-red-500 px-6 py-3 rounded-xl font-bold mt-3">
         SOS
       </button>
     </div>
@@ -76,6 +76,9 @@
           <div class="bg-red-500/20 p-3 rounded-xl">🚨</div>
         </div>
         <p id="statusTextLive" class="text-slate-300 leading-8">Waiting for an SOS request...</p>
+        <button id="cancelEmergencyButton" type="button" class="hidden mt-4 bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-xl font-semibold">
+          Cancel Emergency
+        </button>
       </div>
 
       <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
@@ -136,6 +139,7 @@ let map;
 let currentLat;
 let currentLng;
 let currentAccuracy;
+let currentEmergencyId;
 let socket;
 
 let helperMarkers = []; // ✅ FIX: store markers
@@ -217,6 +221,8 @@ async function createEmergency(emergencyType, description) {
     if (topStatusEl) {
       topStatusEl.textContent = "Emergency request created";
     }
+    currentEmergencyId = data.emergency.id;
+    document.getElementById("cancelEmergencyButton").classList.remove("hidden");
     if (statusEl) {
       statusEl.textContent = `Status: ${data.emergency.status}`;
     }
@@ -224,6 +230,47 @@ async function createEmergency(emergencyType, description) {
     console.error("Emergency creation failed:", error);
     if (statusEl) {
       statusEl.textContent = "Unable to create the emergency request.";
+    }
+  }
+}
+
+async function cancelEmergency() {
+  const topStatusEl = document.getElementById("statusTextTop");
+  const statusEl = document.getElementById("statusTextLive");
+
+  if (!currentEmergencyId) {
+    return;
+  }
+
+  try {
+    const response = await fetch(`/emergency/${currentEmergencyId}/status`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({ status: "CANCELLED" }),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (statusEl) {
+        statusEl.textContent = data.error || "Unable to cancel the emergency.";
+      }
+      return;
+    }
+
+    if (topStatusEl) {
+      topStatusEl.textContent = "Emergency cancelled";
+    }
+    if (statusEl) {
+      statusEl.textContent = `Status: ${data.emergency.status}`;
+    }
+    document.getElementById("cancelEmergencyButton").classList.add("hidden");
+  } catch (error) {
+    console.error("Emergency cancellation failed:", error);
+    if (statusEl) {
+      statusEl.textContent = "Unable to cancel the emergency.";
     }
   }
 }
@@ -241,6 +288,13 @@ async function level2() {
 async function level3() {
   await createEmergency("CRITICAL", "Critical emergency");
 }
+
+document.getElementById("level1Button").addEventListener("click", level1);
+document.getElementById("level2Button").addEventListener("click", level2);
+document.getElementById("level3Button").addEventListener("click", level3);
+document
+  .getElementById("cancelEmergencyButton")
+  .addEventListener("click", cancelEmergency);
 </script>
 </body>
 </html>

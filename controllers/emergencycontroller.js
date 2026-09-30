@@ -1,6 +1,7 @@
 const EmergencyAlert = require("../models/emergencyAlert");
 const Emergency = require("../models/emergency");
 const User = require("../models/signup");
+const mongoose = require("mongoose");
 const { catchAsync, logError, logSOS, AppError } = require("../utils/logger");
 const { isValidCoordinates } = require("../utils/location");
 
@@ -55,7 +56,7 @@ exports.createEmergency = catchAsync(async (req, res) => {
   try {
     const activeEmergency = await Emergency.findOne({
       citizen: citizenId,
-      status: "TRIGGERED",
+      status: { $in: Emergency.getActiveStatuses() },
     });
 
     if (activeEmergency) {
@@ -95,6 +96,78 @@ exports.createEmergency = catchAsync(async (req, res) => {
     return res.status(500).json({
       error: "Unable to create the emergency request.",
     });
+  }
+});
+
+exports.updateEmergencyStatus = catchAsync(async (req, res) => {
+  const requestedStatus = String(req.body.status || "")
+    .trim()
+    .toUpperCase();
+  const allowedStatuses = Emergency.schema.path("status").enumValues;
+
+  if (!requestedStatus || !allowedStatuses.includes(requestedStatus)) {
+    return res
+      .status(400)
+      .json({ error: "A valid emergency status is required." });
+  }
+
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ error: "Emergency not found." });
+  }
+
+  let emergency;
+  try {
+    emergency = await Emergency.findById(req.params.id);
+  } catch (error) {
+    logError("Emergency lookup failed", error, {
+      emergencyId: req.params.id,
+      citizenId: req.session.userId,
+    });
+    return res.status(500).json({ error: "Unable to update the emergency." });
+  }
+
+  if (!emergency) {
+    return res.status(404).json({ error: "Emergency not found." });
+  }
+
+  if (String(emergency.citizen) !== String(req.session.userId)) {
+    return res.status(403).json({ error: "You cannot update this emergency." });
+  }
+
+  if (!Emergency.canTransition(emergency.status, requestedStatus)) {
+    return res.status(409).json({
+      error: `Cannot change emergency status from ${emergency.status} to ${requestedStatus}.`,
+      status: emergency.status,
+    });
+  }
+
+  if (!["SEARCHING_FOR_HELP", "CANCELLED"].includes(requestedStatus)) {
+    return res.status(403).json({
+      error: "Citizens can only search for help or cancel their own emergency.",
+      status: emergency.status,
+    });
+  }
+
+  try {
+    emergency.status = requestedStatus;
+    emergency.updatedAt = new Date();
+    await emergency.save();
+
+    return res.status(200).json({
+      success: true,
+      message:
+        requestedStatus === "CANCELLED"
+          ? "Emergency cancelled"
+          : "Emergency status updated",
+      emergency,
+    });
+  } catch (error) {
+    logError("Emergency status update failed", error, {
+      emergencyId: emergency._id,
+      citizenId: req.session.userId,
+      requestedStatus,
+    });
+    return res.status(500).json({ error: "Unable to update the emergency." });
   }
 });
 

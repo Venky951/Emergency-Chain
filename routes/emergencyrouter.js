@@ -127,5 +127,11 @@ router.post(
   handleValidationErrors,
   emergencyController.createEmergency,
 );
+router.patch(
+  "/emergency/:id/status",
+  requireAuth,
+  requireRole("citizen"),
+  emergencyController.updateEmergencyStatus,
+);
 
 module.exports = router;
