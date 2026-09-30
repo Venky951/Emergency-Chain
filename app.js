@@ -15,6 +15,7 @@ const { MongoMemoryServer } = require("mongodb-memory-server");
 const { errorHandler, logInfo, logError } = require("./utils/logger");
 const { attachUser, requireAuth } = require("./middleware/auth");
 const User = require("./models/signup");
+const Emergency = require("./models/emergency");
 const EmergencyAlert = require("./models/emergencyAlert");
 
 async function resolveMongoUri() {
@@ -175,7 +176,11 @@ async function startApp() {
     serverSelectionTimeoutMS: 5000,
   });
 
-  await Promise.all([User.createIndexes(), EmergencyAlert.createIndexes()]);
+  await Promise.all([
+    User.createIndexes(),
+    Emergency.createIndexes(),
+    EmergencyAlert.createIndexes(),
+  ]);
   logInfo("MongoDB Connected Successfully");
 
   io.on("connection", (socket) => {

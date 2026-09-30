@@ -135,6 +135,7 @@
 let map;
 let currentLat;
 let currentLng;
+let currentAccuracy;
 let socket;
 
 let helperMarkers = []; // ✅ FIX: store markers
@@ -152,6 +153,7 @@ window.addEventListener("load", () => {
   navigator.geolocation.getCurrentPosition(async (position) => {
     currentLat = position.coords.latitude;
     currentLng = position.coords.longitude;
+    currentAccuracy = position.coords.accuracy;
 
     const statusEl = document.getElementById("statusTextLive");
     if (statusEl) {
@@ -176,98 +178,68 @@ window.addEventListener("load", () => {
   });
 });
 
-async function level1() {
+async function createEmergency(emergencyType, description) {
+  const topStatusEl = document.getElementById("statusTextTop");
   const statusEl = document.getElementById("statusTextLive");
-  if (statusEl) {
-    statusEl.textContent = "Submitting a Level 1 SOS request...";
-  }
 
-  const response = await fetch("/trigger-sos", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      level: 1,
-      latitude: currentLat,
-      longitude: currentLng,
-      reason: "Emergency - Level 1",
-    }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
+  if (!Number.isFinite(currentLat) || !Number.isFinite(currentLng)) {
     if (statusEl) {
-      statusEl.textContent = data.error || "Unable to submit SOS request.";
+      statusEl.textContent = "Location access is required to create a valid SOS request.";
     }
     return;
   }
 
   if (statusEl) {
-    statusEl.textContent = "Level 1 request submitted successfully.";
+    statusEl.textContent = "Creating emergency request...";
   }
+
+  try {
+    const response = await fetch("/trigger-sos", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        emergencyType,
+        description,
+        latitude: currentLat,
+        longitude: currentLng,
+        accuracy: currentAccuracy,
+      }),
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      if (statusEl) {
+        statusEl.textContent = data.error || "Unable to create the emergency request.";
+      }
+      return;
+    }
+
+    if (topStatusEl) {
+      topStatusEl.textContent = "Emergency request created";
+    }
+    if (statusEl) {
+      statusEl.textContent = `Status: ${data.emergency.status}`;
+    }
+  } catch (error) {
+    console.error("Emergency creation failed:", error);
+    if (statusEl) {
+      statusEl.textContent = "Unable to create the emergency request.";
+    }
+  }
+}
+
+async function level1() {
+  await createEmergency("GENERAL", "Emergency - Level 1");
 }
 
 async function level2() {
   const reason = document.getElementById("reason").value;
   const message = document.getElementById("msg").value;
-  const statusEl = document.getElementById("statusTextLive");
-
-  if (statusEl) {
-    statusEl.textContent = "Submitting a Level 2 SOS request...";
-  }
-
-  const response = await fetch("/trigger-sos", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      level: 2,
-      reason,
-      message,
-      latitude: currentLat,
-      longitude: currentLng,
-    }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    if (statusEl) {
-      statusEl.textContent = data.error || "Unable to submit SOS request.";
-    }
-    return;
-  }
-
-  if (statusEl) {
-    statusEl.textContent = "Level 2 request submitted successfully.";
-  }
+  await createEmergency("SAFETY", `${reason}${message ? `: ${message}` : ""}`);
 }
 
 async function level3() {
-  const statusEl = document.getElementById("statusTextLive");
-  if (statusEl) {
-    statusEl.textContent = "Submitting a critical SOS request...";
-  }
-
-  const response = await fetch("/trigger-sos", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      level: 3,
-      reason: "Critical emergency",
-      latitude: currentLat,
-      longitude: currentLng,
-    }),
-  });
-
-  const data = await response.json();
-  if (!response.ok) {
-    if (statusEl) {
-      statusEl.textContent = data.error || "Unable to submit SOS request.";
-    }
-    return;
-  }
-
-  if (statusEl) {
-    statusEl.textContent = "Critical SOS request submitted successfully.";
-  }
+  await createEmergency("CRITICAL", "Critical emergency");
 }
 </script>
 </body>

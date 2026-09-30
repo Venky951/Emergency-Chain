@@ -402,39 +402,34 @@ async function triggerSOS(level) {
       return;
     }
 
-    const endpoints = {
-      1: "/api/emergency/level1",
-      2: "/api/emergency/level2",
-      3: "/api/emergency/level3",
+    const emergencyTypes = {
+      1: "GENERAL",
+      2: "SAFETY",
+      3: "CRITICAL",
     };
 
-    const res = await fetch(endpoints[level], {
+    const res = await fetch("/trigger-sos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        lat: currentLat,
-        lng: currentLng,
-        reason: `Emergency - Level ${level}`,
-        message: `Urgent help needed at location`,
+        emergencyType: emergencyTypes[level],
+        description: `Emergency - Level ${level}`,
+        latitude: currentLat,
+        longitude: currentLng,
       }),
     });
 
+    const data = await res.json();
     if (!res.ok) {
-      alert("Error triggering SOS: " + res.statusText);
+      alert(data.error || "Unable to create the emergency request.");
       return;
     }
 
-    const data = await res.json();
-    alert(`✅ Level ${level} SOS triggered successfully!\nAlert ID: ${data.alertId}`);
-
-    // Show notification
-    EC.showNotification(`🚨 SOS Level ${level} Triggered`, {
-      body: `Emergency alert sent to ${level === 1 ? "emergency contacts" : level === 2 ? "nearby helpers" : "all users"}`,
-    });
+    alert(`${data.message}\nStatus: ${data.emergency.status}`);
 
   } catch (err) {
     console.error("[Dashboard] SOS error:", err);
-    alert("Error: " + err.message);
+    alert("Unable to create the emergency request.");
   }
 }
 

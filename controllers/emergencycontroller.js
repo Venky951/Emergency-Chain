@@ -1,9 +1,102 @@
 const EmergencyAlert = require("../models/emergencyAlert");
+const Emergency = require("../models/emergency");
 const User = require("../models/signup");
-const { catchAsync, logSOS, AppError } = require("../utils/logger");
+const { catchAsync, logError, logSOS, AppError } = require("../utils/logger");
 const { isValidCoordinates } = require("../utils/location");
 
 let ioInstance;
+
+exports.createEmergency = catchAsync(async (req, res) => {
+  const citizenId = req.session.userId;
+  const latitude = Number(req.body.latitude);
+  const longitude = Number(req.body.longitude);
+  const accuracy =
+    req.body.accuracy === undefined ||
+    req.body.accuracy === null ||
+    req.body.accuracy === ""
+      ? null
+      : Number(req.body.accuracy);
+  const emergencyType = String(req.body.emergencyType ?? req.body.type ?? "")
+    .trim()
+    .toUpperCase();
+  const description = String(req.body.description ?? "").trim();
+
+  if (
+    !Number.isFinite(latitude) ||
+    latitude < -90 ||
+    latitude > 90 ||
+    !Number.isFinite(longitude) ||
+    longitude < -180 ||
+    longitude > 180
+  ) {
+    return res
+      .status(400)
+      .json({ error: "Valid latitude and longitude are required." });
+  }
+
+  if (!emergencyType || emergencyType.length > 50) {
+    return res
+      .status(400)
+      .json({ error: "A valid emergency type is required." });
+  }
+
+  if (description.length > 1000) {
+    return res
+      .status(400)
+      .json({ error: "Description must be 1000 characters or less." });
+  }
+
+  if (accuracy !== null && (!Number.isFinite(accuracy) || accuracy < 0)) {
+    return res
+      .status(400)
+      .json({ error: "Location accuracy must be a valid positive number." });
+  }
+
+  try {
+    const activeEmergency = await Emergency.findOne({
+      citizen: citizenId,
+      status: "TRIGGERED",
+    });
+
+    if (activeEmergency) {
+      return res.status(409).json({
+        error: "You already have an active emergency request.",
+        status: activeEmergency.status,
+      });
+    }
+
+    const emergency = await Emergency.create({
+      citizen: citizenId,
+      emergencyType,
+      description: description || null,
+      latitude,
+      longitude,
+      locationAccuracy: accuracy,
+      status: "TRIGGERED",
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Emergency request created",
+      emergency: {
+        id: emergency._id,
+        status: emergency.status,
+      },
+    });
+  } catch (error) {
+    if (error.code === 11000) {
+      return res.status(409).json({
+        error: "You already have an active emergency request.",
+        status: "TRIGGERED",
+      });
+    }
+
+    logError("Emergency creation failed", error, { citizenId });
+    return res.status(500).json({
+      error: "Unable to create the emergency request.",
+    });
+  }
+});
 
 /**
  * Initialize Socket.io for real-time updates

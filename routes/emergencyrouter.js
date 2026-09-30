@@ -46,6 +46,36 @@ const sosValidation = [
     .withMessage("Message must be 500 characters or less."),
 ];
 
+const emergencyCreationValidation = [
+  body("latitude")
+    .exists()
+    .isFloat({ min: -90, max: 90 })
+    .withMessage("Valid latitude is required."),
+  body("longitude")
+    .exists()
+    .isFloat({ min: -180, max: 180 })
+    .withMessage("Valid longitude is required."),
+  body("emergencyType")
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 50 })
+    .withMessage("Emergency type must be between 1 and 50 characters."),
+  body("type")
+    .optional()
+    .trim()
+    .isLength({ min: 1, max: 50 })
+    .withMessage("Emergency type must be between 1 and 50 characters."),
+  body("description")
+    .optional({ nullable: true })
+    .trim()
+    .isLength({ max: 1000 })
+    .withMessage("Description must be 1000 characters or less."),
+  body("accuracy")
+    .optional({ nullable: true })
+    .isFloat({ min: 0 })
+    .withMessage("Location accuracy must be a positive number."),
+];
+
 router.post(
   "/api/emergency/level1",
   requireAuth,
@@ -93,9 +123,9 @@ router.post(
   requireAuth,
   requireRole("citizen"),
   sosLimiter,
-  sosValidation,
+  emergencyCreationValidation,
   handleValidationErrors,
-  emergencyController.triggerLevel3,
+  emergencyController.createEmergency,
 );
 
 module.exports = router;
