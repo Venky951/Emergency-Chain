@@ -60,6 +60,17 @@ const emergencySchema = new mongoose.Schema(
       default: null,
     },
 
+    assignedResponder: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "User",
+      default: null,
+    },
+
+    assignedAt: {
+      type: Date,
+      default: null,
+    },
+
     status: {
       type: String,
       enum: Object.keys(VALID_TRANSITIONS),

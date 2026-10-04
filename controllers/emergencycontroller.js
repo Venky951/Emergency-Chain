@@ -16,6 +16,7 @@ const LOCATION_FRESHNESS_MINUTES = Number.isFinite(
 )
   ? Math.max(1, Number(process.env.LOCATION_FRESHNESS_MINUTES))
   : 10;
+const RESPONDER_ROLES = ["volunteer", "ambulance_driver", "hospital_staff"];
 
 exports.createEmergency = catchAsync(async (req, res) => {
   const citizenId = req.session.userId;
@@ -250,6 +251,111 @@ exports.getNearbyResponders = catchAsync(async (req, res) => {
     });
     return res.status(500).json({
       error: "Unable to find nearby responders.",
+    });
+  }
+});
+
+exports.getSearchingEmergencies = catchAsync(async (req, res) => {
+  const emergencies = await Emergency.find({
+    status: "SEARCHING_FOR_HELP",
+    assignedResponder: null,
+  })
+    .sort({ createdAt: 1 })
+    .limit(20)
+    .select("_id emergencyType description status createdAt")
+    .lean();
+
+  return res.status(200).json({
+    success: true,
+    emergencies,
+  });
+});
+
+exports.acceptEmergency = catchAsync(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ error: "Emergency not found." });
+  }
+
+  const emergency = await Emergency.findById(req.params.id).select(
+    "status assignedResponder",
+  );
+  if (!emergency) {
+    return res.status(404).json({ error: "Emergency not found." });
+  }
+
+  if (
+    emergency.status !== "SEARCHING_FOR_HELP" ||
+    emergency.assignedResponder
+  ) {
+    return res.status(409).json({
+      error: "Emergency is no longer available for acceptance.",
+      status: emergency.status,
+    });
+  }
+
+  const responderId = req.session.userId;
+  const responder = await User.findOneAndUpdate(
+    {
+      _id: responderId,
+      role: { $in: RESPONDER_ROLES },
+      isActive: true,
+      isAvailable: true,
+    },
+    { $set: { isAvailable: false } },
+    { new: true },
+  ).select("_id role name");
+
+  if (!responder) {
+    return res.status(409).json({
+      error: "Responder is unavailable for a new assignment.",
+    });
+  }
+
+  const assignedAt = new Date();
+  try {
+    const assignedEmergency = await Emergency.findOneAndUpdate(
+      {
+        _id: req.params.id,
+        status: "SEARCHING_FOR_HELP",
+        assignedResponder: null,
+      },
+      {
+        $set: {
+          assignedResponder: responder._id,
+          assignedAt,
+          status: "RESPONDER_ASSIGNED",
+          updatedAt: assignedAt,
+        },
+      },
+      { new: true, runValidators: true },
+    );
+
+    if (!assignedEmergency) {
+      await User.updateOne(
+        { _id: responder._id, isAvailable: false },
+        { $set: { isAvailable: true } },
+      );
+      return res.status(409).json({
+        error: "Emergency is no longer available for acceptance.",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Emergency assigned to responder.",
+      emergency: assignedEmergency,
+    });
+  } catch (error) {
+    await User.updateOne(
+      { _id: responder._id, isAvailable: false },
+      { $set: { isAvailable: true } },
+    );
+    logError("Emergency acceptance failed", error, {
+      emergencyId: req.params.id,
+      responderId: responder._id,
+    });
+    return res.status(500).json({
+      error: "Unable to accept the emergency.",
     });
   }
 });

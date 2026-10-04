@@ -5,6 +5,8 @@ const { body, validationResult } = require("express-validator");
 const emergencyController = require("../controllers/emergencycontroller");
 const { requireAuth, requireRole } = require("../middleware/auth");
 
+const responderRoles = ["volunteer", "ambulance_driver", "hospital_staff"];
+
 const sosLimiter = rateLimit({
   windowMs: 5 * 60 * 1000,
   max: 8,
@@ -137,6 +139,18 @@ router.get(
   "/api/emergency/:id/nearby-responders",
   requireAuth,
   emergencyController.getNearbyResponders,
+);
+router.get(
+  "/api/emergency/searching-for-help",
+  requireAuth,
+  requireRole(...responderRoles),
+  emergencyController.getSearchingEmergencies,
+);
+router.post(
+  "/api/emergency/:id/accept",
+  requireAuth,
+  requireRole(...responderRoles),
+  emergencyController.acceptEmergency,
 );
 
 module.exports = router;

@@ -155,6 +155,19 @@
   </div>
 </section>
 
+<% if (["volunteer", "ambulance_driver", "hospital_staff"].includes(user.role)) { %>
+<section class="px-6 md:px-16 py-10">
+  <div class="glass rounded-3xl p-8">
+    <h2 class="text-2xl font-bold mb-6">Emergencies Seeking Help</h2>
+    <div id="searchingEmergenciesList" class="space-y-4">
+      <div class="bg-slate-800 rounded-xl p-4 text-slate-400">
+        Loading emergencies...
+      </div>
+    </div>
+  </div>
+</section>
+<% } %>
+
 <!-- SCRIPTS -->
 <script src="/app.js"></script>
 
@@ -169,6 +182,7 @@ let helpersLayerGroup;
 let alertsLayerGroup;
 let currentLat;
 let currentLng;
+const isResponder = <%= JSON.stringify(["volunteer", "ambulance_driver", "hospital_staff"].includes(user.role)) %>;
 
 // ========================================
 // 1. MAP INITIALIZATION
@@ -391,6 +405,82 @@ async function loadNearbyAlerts() {
   }
 }
 
+async function loadSearchingEmergencies() {
+  if (!isResponder) return;
+
+  const list = document.getElementById("searchingEmergenciesList");
+  try {
+    const response = await fetch("/api/emergency/searching-for-help", {
+      headers: { Accept: "application/json" },
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      list.textContent = data.error || "Unable to load emergencies.";
+      return;
+    }
+
+    list.replaceChildren();
+    if (!data.emergencies.length) {
+      list.textContent = "No emergencies are currently seeking help.";
+      return;
+    }
+
+    data.emergencies.forEach((emergency) => {
+      const card = document.createElement("div");
+      card.className = "bg-slate-800 rounded-xl p-4 flex justify-between items-center gap-4";
+
+      const summary = document.createElement("div");
+      const title = document.createElement("p");
+      title.className = "font-bold";
+      title.textContent = emergency.emergencyType;
+      const description = document.createElement("p");
+      description.className = "text-sm text-slate-400";
+      description.textContent = emergency.description || "Emergency request";
+      const status = document.createElement("p");
+      status.className = "text-xs text-slate-500";
+      status.dataset.emergencyStatus = "true";
+      status.textContent = `Status: ${emergency.status}`;
+      summary.append(title, description, status);
+
+      const button = document.createElement("button");
+      button.className = "bg-green-600 hover:bg-green-500 px-4 py-2 rounded-xl font-semibold";
+      button.textContent = "Accept";
+      button.addEventListener("click", () =>
+        acceptEmergency(emergency._id, button, status),
+      );
+
+      card.append(summary, button);
+      list.appendChild(card);
+    });
+  } catch (error) {
+    console.error("[Dashboard] Searching emergencies error:", error);
+    list.textContent = "Unable to load emergencies.";
+  }
+}
+
+async function acceptEmergency(emergencyId, button, statusElement) {
+  try {
+    const response = await fetch(`/api/emergency/${emergencyId}/accept`, {
+      method: "POST",
+      headers: { Accept: "application/json" },
+    });
+    const data = await response.json();
+
+    if (!response.ok) {
+      statusElement.textContent = data.error || "Unable to accept emergency.";
+      return;
+    }
+
+    button.disabled = true;
+    button.textContent = "Assigned";
+    statusElement.textContent = `Status: ${data.emergency.status}`;
+  } catch (error) {
+    console.error("[Dashboard] Emergency acceptance error:", error);
+    statusElement.textContent = "Unable to accept emergency.";
+  }
+}
+
 // ========================================
 // 5. SOS TRIGGER
 // ========================================
@@ -520,6 +610,7 @@ window.addEventListener("offline", () => {
 // Initialize when page loads
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", async () => {
+    loadSearchingEmergencies();
     const locationReady = await initializeDashboardMap();
     if (!locationReady) return;
     await startLocationTracking();
@@ -528,6 +619,7 @@ if (document.readyState === "loading") {
   });
 } else {
   (async () => {
+    loadSearchingEmergencies();
     const locationReady = await initializeDashboardMap();
     if (!locationReady) return;
     await startLocationTracking();
