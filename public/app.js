@@ -343,6 +343,13 @@ function initializeSocket() {
   return socket;
 }
 
+function registerEmergencyUpdateListener(socket, handler) {
+  if (!socket || typeof handler !== "function") return;
+
+  socket.off("emergency:updated", handler);
+  socket.on("emergency:updated", handler);
+}
+
 // ========================================
 // 5. NOTIFICATIONS
 // ========================================
@@ -420,6 +427,7 @@ window.EC = {
   offlineDB,
   locationTracker,
   initializeSocket,
+  registerEmergencyUpdateListener,
   showNotification,
   requestNotificationPermission,
 };

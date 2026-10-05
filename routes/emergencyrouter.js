@@ -132,7 +132,6 @@ router.post(
 router.patch(
   "/emergency/:id/status",
   requireAuth,
-  requireRole("citizen"),
   emergencyController.updateEmergencyStatus,
 );
 router.get(

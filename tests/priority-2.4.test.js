@@ -27,6 +27,13 @@ function makeRes() {
 
 async function invokeController(controller, req, res) {
   await new Promise((resolve, reject) => {
+    const originalJson = res.json.bind(res);
+    res.json = (payload) => {
+      originalJson(payload);
+      resolve();
+      return res;
+    };
+
     controller(req, res, (err) => {
       if (err) {
         reject(err);

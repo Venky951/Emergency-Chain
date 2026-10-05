@@ -135,7 +135,7 @@
 <footer class="px-6 md:px-16 py-10 border-t border-slate-800 text-center text-slate-500">
   Built for Hackathon Theme — Chain Reaction ⚡
 </footer>
-<script src="/socket.io/socket.io.js"></script>
+<script src="/app.js"></script>
 <!-- FIXED EMERGENCY PAGE SCRIPT -->
 
 <script>
@@ -144,7 +144,7 @@ let currentLat;
 let currentLng;
 let currentAccuracy;
 let currentEmergencyId;
-let socket;
+const socket = EC.initializeSocket();
 
 let helperMarkers = []; // ✅ FIX: store markers
 
@@ -237,6 +237,29 @@ async function createEmergency(emergencyType, description) {
       statusEl.textContent = "Unable to create the emergency request.";
     }
   }
+}
+
+function handleEmergencyUpdated(data) {
+  if (data.emergencyId !== currentEmergencyId) {
+    return;
+  }
+
+  const topStatusEl = document.getElementById("statusTextTop");
+  const statusEl = document.getElementById("statusTextLive");
+  if (topStatusEl) {
+    topStatusEl.textContent = `Emergency ${data.status.toLowerCase().replaceAll("_", " ")}`;
+  }
+  if (statusEl) {
+    statusEl.textContent = `Status: ${data.status}`;
+  }
+  if (["CANCELLED", "RESOLVED"].includes(data.status)) {
+    document.getElementById("cancelEmergencyButton").classList.add("hidden");
+    document.getElementById("searchRespondersButton").classList.add("hidden");
+  }
+}
+
+if (socket) {
+  EC.registerEmergencyUpdateListener(socket, handleEmergencyUpdated);
 }
 
 async function cancelEmergency() {

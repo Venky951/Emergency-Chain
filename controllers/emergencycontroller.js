@@ -17,6 +17,37 @@ const LOCATION_FRESHNESS_MINUTES = Number.isFinite(
   ? Math.max(1, Number(process.env.LOCATION_FRESHNESS_MINUTES))
   : 10;
 const RESPONDER_ROLES = ["volunteer", "ambulance_driver", "hospital_staff"];
+const EMERGENCY_UPDATED_EVENT = "emergency:updated";
+
+const getUserRoom = (userId) => `user:${String(userId)}`;
+
+const getEmergencyUpdatePayload = (emergency) => ({
+  emergencyId: String(emergency._id),
+  status: emergency.status,
+  assignedResponder: emergency.assignedResponder
+    ? String(emergency.assignedResponder)
+    : null,
+  assignedAt: emergency.assignedAt
+    ? new Date(emergency.assignedAt).toISOString()
+    : null,
+  updatedAt: emergency.updatedAt
+    ? new Date(emergency.updatedAt).toISOString()
+    : null,
+});
+
+const emitEmergencyUpdated = (emergency) => {
+  if (!ioInstance || !emergency) return;
+
+  const recipients = new Set([getUserRoom(emergency.citizen)]);
+  if (emergency.assignedResponder) {
+    recipients.add(getUserRoom(emergency.assignedResponder));
+  }
+
+  const payload = getEmergencyUpdatePayload(emergency);
+  for (const room of recipients) {
+    ioInstance.to(room).emit(EMERGENCY_UPDATED_EVENT, payload);
+  }
+};
 
 exports.createEmergency = catchAsync(async (req, res) => {
   const citizenId = req.session.userId;
@@ -87,6 +118,8 @@ exports.createEmergency = catchAsync(async (req, res) => {
       status: "TRIGGERED",
     });
 
+    emitEmergencyUpdated(emergency);
+
     return res.status(201).json({
       success: true,
       message: "Emergency request created",
@@ -141,7 +174,13 @@ exports.updateEmergencyStatus = catchAsync(async (req, res) => {
     return res.status(404).json({ error: "Emergency not found." });
   }
 
-  if (String(emergency.citizen) !== String(req.session.userId)) {
+  const requesterId = String(req.session.userId);
+  const isCitizen = String(emergency.citizen) === requesterId;
+  const isAssignedResponder =
+    emergency.assignedResponder &&
+    String(emergency.assignedResponder) === requesterId;
+
+  if (!isCitizen && !isAssignedResponder) {
     return res.status(403).json({ error: "You cannot update this emergency." });
   }
 
@@ -152,9 +191,22 @@ exports.updateEmergencyStatus = catchAsync(async (req, res) => {
     });
   }
 
-  if (!["SEARCHING_FOR_HELP", "CANCELLED"].includes(requestedStatus)) {
+  const citizenCanUpdate = ["SEARCHING_FOR_HELP", "CANCELLED"].includes(
+    requestedStatus,
+  );
+  const responderCanUpdate = ["RESPONDER_ON_WAY", "HELP_REACHED"].includes(
+    requestedStatus,
+  );
+  const citizenCanResolve = requestedStatus === "RESOLVED";
+
+  if (
+    !(
+      (isCitizen && (citizenCanUpdate || citizenCanResolve)) ||
+      (isAssignedResponder && responderCanUpdate)
+    )
+  ) {
     return res.status(403).json({
-      error: "Citizens can only search for help or cancel their own emergency.",
+      error: "You cannot set this emergency status.",
       status: emergency.status,
     });
   }
@@ -163,6 +215,8 @@ exports.updateEmergencyStatus = catchAsync(async (req, res) => {
     emergency.status = requestedStatus;
     emergency.updatedAt = new Date();
     await emergency.save();
+
+    emitEmergencyUpdated(emergency);
 
     return res.status(200).json({
       success: true,
@@ -340,6 +394,8 @@ exports.acceptEmergency = catchAsync(async (req, res) => {
       });
     }
 
+    emitEmergencyUpdated(assignedEmergency);
+
     return res.status(200).json({
       success: true,
       message: "Emergency assigned to responder.",
@@ -365,15 +421,25 @@ exports.acceptEmergency = catchAsync(async (req, res) => {
  */
 exports.setIO = (io) => {
   ioInstance = io;
+  if (!io) return;
 
-  // Handle socket connections
+  io.use((socket, next) => {
+    const session = socket.request.session;
+    if (!session?.isLoggedIn || !session.userId) {
+      return next(new Error("Authentication required."));
+    }
+
+    socket.data.userId = String(session.userId);
+    return next();
+  });
+
   io.on("connection", (socket) => {
     console.log(`[Socket] User connected: ${socket.id}`);
+    socket.join(getUserRoom(socket.data.userId));
 
-    // Listen for location updates
     socket.on("location-update", async (data) => {
       try {
-        const userId = data.userId;
+        const userId = socket.data.userId;
         const latitude = Number(data.latitude ?? data.lat ?? NaN);
         const longitude = Number(data.longitude ?? data.lng ?? NaN);
         if (!userId || !isValidCoordinates(latitude, longitude)) return;
@@ -401,7 +467,6 @@ exports.setIO = (io) => {
       }
     });
 
-    // Handle disconnect
     socket.on("disconnect", () => {
       console.log(`[Socket] User disconnected: ${socket.id}`);
     });

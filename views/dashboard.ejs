@@ -183,6 +183,7 @@ let alertsLayerGroup;
 let currentLat;
 let currentLng;
 const isResponder = <%= JSON.stringify(["volunteer", "ambulance_driver", "hospital_staff"].includes(user.role)) %>;
+let currentEmergencyId;
 
 // ========================================
 // 1. MAP INITIALIZATION
@@ -516,6 +517,7 @@ async function triggerSOS(level) {
     }
 
     alert(`${data.message}\nStatus: ${data.emergency.status}`);
+    currentEmergencyId = data.emergency.id;
 
   } catch (err) {
     console.error("[Dashboard] SOS error:", err);
@@ -558,6 +560,17 @@ async function acceptAlert(alertId) {
 const socket = EC.initializeSocket();
 
 if (socket) {
+  const handleEmergencyUpdated = (data) => {
+    if (data.emergencyId === currentEmergencyId) {
+      console.log("[Socket] Emergency updated:", data.status);
+    }
+    if (isResponder) {
+      loadSearchingEmergencies();
+    }
+  };
+
+  EC.registerEmergencyUpdateListener(socket, handleEmergencyUpdated);
+
   socket.on("sos-level-1", (data) => {
     console.log("[Socket] Level 1 SOS received");
     EC.showNotification("🚨 Emergency Alert", data.reason);

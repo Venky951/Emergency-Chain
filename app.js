@@ -105,22 +105,23 @@ async function startApp() {
     logError("Session store connection error", error);
   });
 
-  app.use(
-    session({
-      secret:
-        process.env.SESSION_SECRET || "development-session-secret-change-me",
-      name: "emergencychain.sid",
-      resave: false,
-      saveUninitialized: false,
-      store: sessionStore,
-      cookie: {
-        maxAge: 24 * 60 * 60 * 1000,
-        httpOnly: true,
-        sameSite: "lax",
-        secure: process.env.NODE_ENV === "production",
-      },
-    }),
-  );
+  const sessionMiddleware = session({
+    secret:
+      process.env.SESSION_SECRET || "development-session-secret-change-me",
+    name: "emergencychain.sid",
+    resave: false,
+    saveUninitialized: false,
+    store: sessionStore,
+    cookie: {
+      maxAge: 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+    },
+  });
+
+  app.use(sessionMiddleware);
+  io.engine.use(sessionMiddleware);
 
   app.use((req, res, next) => {
     res.locals.isLoggedIn = !!req.session?.isLoggedIn;
@@ -182,14 +183,6 @@ async function startApp() {
     EmergencyAlert.createIndexes(),
   ]);
   logInfo("MongoDB Connected Successfully");
-
-  io.on("connection", (socket) => {
-    logInfo("Socket.io user connected", { socketId: socket.id });
-
-    socket.on("disconnect", () => {
-      logInfo("Socket.io user disconnected", { socketId: socket.id });
-    });
-  });
 
   server.listen(PORT, "0.0.0.0", () => {
     logInfo(`Server running on http://localhost:${PORT}`);
