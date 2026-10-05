@@ -63,8 +63,6 @@ const logSOS = (userId, level, latitude, longitude, data = {}) => {
   const entry = formatLogMessage("SOS", `Level ${level} triggered`, {
     userId,
     level,
-    latitude,
-    longitude,
     ...data,
   });
   console.log(`[SOS] Level ${level} from user ${userId}`);
@@ -77,8 +75,6 @@ const logSOS = (userId, level, latitude, longitude, data = {}) => {
 const logLocation = (userId, latitude, longitude) => {
   const entry = formatLogMessage("LOCATION", "Location updated", {
     userId,
-    latitude,
-    longitude,
   });
   logToFile("location.log", entry);
 };

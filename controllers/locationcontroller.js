@@ -1,6 +1,10 @@
 const User = require("../models/signup");
 const { catchAsync, logLocation, AppError } = require("../utils/logger");
 const { isValidCoordinates, calculateDistance } = require("../utils/location");
+const MAX_NEARBY_RADIUS_METERS = Math.max(
+  100,
+  Number(process.env.MAX_NEARBY_RADIUS_METERS || 5000),
+);
 
 const normalizeLocation = (payload = {}) => {
   const latitude = Number(payload.latitude ?? payload.lat ?? NaN);
@@ -80,6 +84,9 @@ exports.getNearbyUsers = catchAsync(async (req, res) => {
   if (!Number.isFinite(radius) || radius <= 0) {
     throw new AppError("Invalid radius.", 400);
   }
+  if (radius > MAX_NEARBY_RADIUS_METERS) {
+    throw new AppError("Requested radius is too large.", 400);
+  }
 
   const nearbyUsers = await User.findNearby(longitude, latitude, radius, [
     userId,
@@ -106,7 +113,6 @@ exports.getNearbyUsers = catchAsync(async (req, res) => {
         id: user._id,
         name: user.name,
         role: user.role,
-        phone: user.phone,
         distance: Number(distance.toFixed(2)),
         lastSeen: user.lastSeen,
         isAvailable: user.isAvailable,

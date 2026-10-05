@@ -14,6 +14,7 @@ const { MongoMemoryReplSet } = require("mongodb-memory-server");
 
 const { errorHandler, logInfo, logError } = require("./utils/logger");
 const { attachUser, requireAuth } = require("./middleware/auth");
+const { sameOrigin } = require("./middleware/sameorigin");
 const User = require("./models/signup");
 const Emergency = require("./models/emergency");
 const EmergencyAlert = require("./models/emergencyAlert");
@@ -39,9 +40,7 @@ async function resolveMongoUri() {
 
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-  cors: { origin: "*", methods: ["GET", "POST"] },
-});
+const io = new Server(server);
 
 app.set("view engine", "ejs");
 app.set("views", path.join(__dirname, "views"));
@@ -101,6 +100,16 @@ const sosLimiter = rateLimit({
 
 async function startApp() {
   const mongoUri = await resolveMongoUri();
+  const sessionSecret = process.env.SESSION_SECRET;
+  if (
+    process.env.NODE_ENV === "production" &&
+    (!sessionSecret || sessionSecret.length < 32)
+  ) {
+    throw new Error(
+      "SESSION_SECRET must be at least 32 characters in production.",
+    );
+  }
+
   const sessionStore = new MongoStore({
     uri: mongoUri,
     collection: "sessions",
@@ -126,6 +135,7 @@ async function startApp() {
   });
 
   app.use(sessionMiddleware);
+  app.use(sameOrigin);
   io.engine.use(sessionMiddleware);
 
   app.use((req, res, next) => {

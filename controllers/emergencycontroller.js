@@ -726,10 +726,8 @@ exports.setIO = (io) => {
           lastSeen: new Date(),
         });
 
-        io.emit("user-location", {
+        io.to(getUserRoom(userId)).emit("user-location", {
           userId,
-          latitude,
-          longitude,
           timestamp: new Date(),
         });
       } catch (err) {
@@ -779,11 +777,8 @@ exports.triggerLevel1 = catchAsync(async (req, res) => {
   logSOS(userId, 1, latitude, longitude, { reason });
 
   if (ioInstance) {
-    ioInstance.emit("sos-level-1", {
+    ioInstance.to(getUserRoom(userId)).emit("sos-level-1", {
       alertId: alert._id,
-      userId,
-      latitude,
-      longitude,
       reason,
       timestamp: new Date(),
     });
@@ -839,16 +834,15 @@ exports.triggerLevel2 = catchAsync(async (req, res) => {
   });
 
   if (ioInstance) {
-    ioInstance.emit("sos-level-2", {
-      alertId: alert._id,
-      userId,
-      latitude,
-      longitude,
-      reason,
-      message,
-      nearbyCount: nearbyUsers.length,
-      timestamp: new Date(),
-    });
+    for (const nearbyUser of nearbyUsers) {
+      ioInstance.to(getUserRoom(nearbyUser._id)).emit("sos-level-2", {
+        alertId: alert._id,
+        reason,
+        message,
+        nearbyCount: nearbyUsers.length,
+        timestamp: new Date(),
+      });
+    }
   }
 
   res.json({
@@ -902,18 +896,21 @@ exports.triggerLevel3 = catchAsync(async (req, res) => {
   logSOS(userId, 3, latitude, longitude, { reason, userName: user.name });
 
   if (ioInstance) {
-    ioInstance.emit("sos-level-3", {
-      alertId: alert._id,
-      userId,
-      userName: user.name,
-      userPhone: user.phone,
-      latitude,
-      longitude,
-      reason,
-      message,
-      timestamp: new Date(),
-      blinking: true,
-    });
+    const responders = await User.find({
+      role: { $in: RESPONDER_ROLES },
+      isActive: true,
+    })
+      .select("_id")
+      .lean();
+    for (const responder of responders) {
+      ioInstance.to(getUserRoom(responder._id)).emit("sos-level-3", {
+        alertId: alert._id,
+        reason,
+        message,
+        timestamp: new Date(),
+        blinking: true,
+      });
+    }
   }
 
   res.json({
@@ -968,9 +965,13 @@ exports.acceptAlert = catchAsync(async (req, res) => {
 
   // Notify via socket
   if (ioInstance) {
-    ioInstance.emit("alert-accepted", {
+    ioInstance.to(getUserRoom(alert.userId)).emit("alert-accepted", {
       alertId,
       acceptedBy: userId,
+      totalAccepted: alert.acceptedBy.length,
+    });
+    ioInstance.to(getUserRoom(userId)).emit("alert-accepted", {
+      alertId,
       totalAccepted: alert.acceptedBy.length,
     });
   }
@@ -1004,7 +1005,7 @@ exports.cancelAlert = catchAsync(async (req, res) => {
   logSOS(userId, 0, null, null, { action: "cancelled", alertId });
 
   if (ioInstance) {
-    ioInstance.emit("alert-cancelled", { alertId });
+    ioInstance.to(getUserRoom(userId)).emit("alert-cancelled", { alertId });
   }
 
   res.json({ success: true, message: "Alert cancelled" });

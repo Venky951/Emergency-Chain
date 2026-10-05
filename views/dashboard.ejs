@@ -302,38 +302,48 @@ async function loadNearbyHelpers() {
 
     // Update UI
     const helpersList = document.getElementById("helpersList");
-    helpersList.innerHTML = "";
+    helpersList.replaceChildren();
 
     if (!helpers.length) {
-      helpersList.innerHTML = `
-        <div class="bg-slate-800 rounded-xl p-4 text-slate-400 col-span-full">
-          No nearby helpers found
-        </div>
-      `;
+      const emptyState = document.createElement("div");
+      emptyState.className = "bg-slate-800 rounded-xl p-4 text-slate-400 col-span-full";
+      emptyState.textContent = "No nearby helpers found";
+      helpersList.appendChild(emptyState);
       return;
     }
 
     helpers.forEach((helper) => {
-      // Add marker
+      const popup = document.createElement("div");
+      const popupName = document.createElement("strong");
+      popupName.textContent = helper.name || "Nearby helper";
+      const popupRole = document.createElement("span");
+      popupRole.textContent = ` ${helper.role || ""}`;
+      popup.append(popupName, document.createElement("br"), popupRole);
       L.marker([helper.location.latitude, helper.location.longitude])
         .addTo(helpersLayerGroup)
-        .bindPopup(`<strong>${helper.name}</strong><br>${helper.role}`);
+        .bindPopup(popup);
 
-      // Add to list
-      helpersList.innerHTML += `
-        <div class="bg-slate-800 rounded-xl p-4 hover:bg-slate-700 transition">
-          <div class="flex justify-between items-start mb-2">
-            <div>
-              <p class="font-bold">${helper.name}</p>
-              <p class="text-sm text-slate-400 capitalize">${helper.role}</p>
-            </div>
-            <span class="text-green-400 font-bold">${Number(helper.distance).toFixed(1)}km</span>
-          </div>
-          <div class="text-xs text-slate-500">
-            📍 <span id="lastSeen">${helper.lastSeen ? "Active now" : "Offline"}</span>
-          </div>
-        </div>
-      `;
+      const card = document.createElement("div");
+      card.className = "bg-slate-800 rounded-xl p-4 hover:bg-slate-700 transition";
+      const header = document.createElement("div");
+      header.className = "flex justify-between items-start mb-2";
+      const details = document.createElement("div");
+      const name = document.createElement("p");
+      name.className = "font-bold";
+      name.textContent = helper.name || "Nearby helper";
+      const role = document.createElement("p");
+      role.className = "text-sm text-slate-400 capitalize";
+      role.textContent = helper.role || "";
+      details.append(name, role);
+      const distance = document.createElement("span");
+      distance.className = "text-green-400 font-bold";
+      distance.textContent = `${Number(helper.distance).toFixed(1)}km`;
+      header.append(details, distance);
+      const lastSeen = document.createElement("div");
+      lastSeen.className = "text-xs text-slate-500";
+      lastSeen.textContent = `📍 ${helper.lastSeen ? "Active now" : "Offline"}`;
+      card.append(header, lastSeen);
+      helpersList.appendChild(card);
     });
   } catch (err) {
     console.error("[Dashboard] Load helpers error:", err);
@@ -363,43 +373,53 @@ async function loadNearbyAlerts() {
 
     // Update UI
     const alertsList = document.getElementById("alertsList");
-    alertsList.innerHTML = "";
+    alertsList.replaceChildren();
 
     if (!alerts.length) {
-      alertsList.innerHTML = `
-        <div class="bg-slate-800 rounded-xl p-4 text-slate-400">
-          No nearby alerts right now
-        </div>
-      `;
+      const emptyState = document.createElement("div");
+      emptyState.className = "bg-slate-800 rounded-xl p-4 text-slate-400";
+      emptyState.textContent = "No nearby alerts right now";
+      alertsList.appendChild(emptyState);
       return;
     }
 
     alerts.forEach((alert) => {
-      // Add marker
+      const popup = document.createElement("div");
+      const popupTitle = document.createElement("strong");
+      popupTitle.textContent = `Level ${alert.level} Alert`;
+      const popupReason = document.createElement("span");
+      popupReason.textContent = ` ${alert.reason || "Emergency alert"}`;
+      popup.append(popupTitle, document.createElement("br"), popupReason);
       L.marker([alert.location.coordinates[1], alert.location.coordinates[0]])
         .addTo(alertsLayerGroup)
-        .bindPopup(`<strong>Level ${alert.level} Alert</strong><br>${alert.reason}`);
+        .bindPopup(popup);
 
       // Add to list
       const levelEmoji = alert.level === 3 ? "🆘" : alert.level === 2 ? "🔔" : "⚠️";
       const levelColor = alert.level === 3 ? "red" : alert.level === 2 ? "orange" : "yellow";
 
-      alertsList.innerHTML += `
-        <div class="bg-${levelColor}-900/30 border border-${levelColor}-500/50 rounded-xl p-4">
-          <div class="flex justify-between items-start mb-2">
-            <div>
-              <p class="font-bold">${levelEmoji} Level ${alert.level} Alert</p>
-              <p class="text-sm text-slate-300">${alert.reason}</p>
-            </div>
-            <button onclick="acceptAlert('${alert._id}')" class="bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm font-bold transition">
-              Help
-            </button>
-          </div>
-          <div class="text-xs text-slate-400">
-            👤 ${alert.userName} • ⏱️ ${alert.expiresAt ? 'Active' : 'Expired'}
-          </div>
-        </div>
-      `;
+      const card = document.createElement("div");
+      card.className = `bg-${levelColor}-900/30 border border-${levelColor}-500/50 rounded-xl p-4`;
+      const header = document.createElement("div");
+      header.className = "flex justify-between items-start mb-2";
+      const details = document.createElement("div");
+      const title = document.createElement("p");
+      title.className = "font-bold";
+      title.textContent = `${levelEmoji} Level ${alert.level} Alert`;
+      const reason = document.createElement("p");
+      reason.className = "text-sm text-slate-300";
+      reason.textContent = alert.reason || "Emergency alert";
+      details.append(title, reason);
+      const helpButton = document.createElement("button");
+      helpButton.className = "bg-green-600 hover:bg-green-700 px-3 py-1 rounded text-sm font-bold transition";
+      helpButton.textContent = "Help";
+      helpButton.addEventListener("click", () => acceptAlert(alert._id));
+      header.append(details, helpButton);
+      const metadata = document.createElement("div");
+      metadata.className = "text-xs text-slate-400";
+      metadata.textContent = `👤 ${alert.userName || "Nearby user"} • ⏱️ ${alert.expiresAt ? "Active" : "Expired"}`;
+      card.append(header, metadata);
+      alertsList.appendChild(card);
     });
   } catch (err) {
     console.error("[Dashboard] Load alerts error:", err);
@@ -562,6 +582,23 @@ async function acceptAlert(alertId) {
 const socket = EC.initializeSocket();
 
 if (socket) {
+  const refreshCurrentEmergency = async () => {
+    if (!currentEmergencyId) return;
+    try {
+      const response = await fetch(`/emergency/${currentEmergencyId}/history`, {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const latest = data.history?.at(-1);
+      if (latest) {
+        console.log("[Socket] Recovered emergency status:", latest.toStatus);
+      }
+    } catch (error) {
+      console.warn("[Dashboard] Emergency recovery failed:", error);
+    }
+  };
+
   const handleEmergencyUpdated = (data) => {
     if (data.emergencyId === currentEmergencyId) {
       console.log("[Socket] Emergency updated:", data.status);
@@ -572,6 +609,7 @@ if (socket) {
   };
 
   EC.registerEmergencyUpdateListener(socket, handleEmergencyUpdated);
+  window.addEventListener("app-socket-connected", refreshCurrentEmergency);
 
   socket.on("sos-level-1", (data) => {
     console.log("[Socket] Level 1 SOS received");

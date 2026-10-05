@@ -8,7 +8,13 @@
  * - OSM tiles bypass the service worker and remain online-only
  */
 
-const CACHE_NAME = "emergency-chain-v3";
+const CACHE_NAME = "emergency-chain-v4";
+const PRIVATE_API_PREFIXES = [
+  "/api/",
+  "/emergency/",
+  "/nearby-users",
+  "/update-location",
+];
 const OSM_TILE_HOSTS = new Set([
   "tile.openstreetmap.org",
   "a.tile.openstreetmap.org",
@@ -82,8 +88,8 @@ self.addEventListener("fetch", (event) => {
   }
 
   // API calls: Network first
-  if (url.pathname.startsWith("/api/")) {
-    event.respondWith(networkFirst(request));
+  if (isPrivateApiRequest(url)) {
+    event.respondWith(fetch(request));
   }
   // HTML must reflect the current authentication session.
   else if (request.mode === "navigate") {
@@ -94,6 +100,10 @@ self.addEventListener("fetch", (event) => {
     event.respondWith(cacheFirst(request));
   }
 });
+
+function isPrivateApiRequest(url) {
+  return PRIVATE_API_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
+}
 
 /**
  * Network first strategy (API calls)

@@ -1,6 +1,22 @@
 const User = require("../models/signup");
 const bcrypt = require("bcryptjs");
 
+const establishAuthenticatedSession = (req, user) =>
+  new Promise((resolve, reject) => {
+    req.session.regenerate((error) => {
+      if (error) {
+        reject(error);
+        return;
+      }
+
+      req.session.isLoggedIn = true;
+      req.session.userId = user._id;
+      req.session.userRole = user.role;
+      req.session.userName = user.name;
+      resolve();
+    });
+  });
+
 const sanitizeRole = (roleValue) => {
   const allowedRoles = ["citizen"];
   return allowedRoles.includes(roleValue) ? roleValue : "citizen";
@@ -95,10 +111,7 @@ exports.postSignup = async (req, res, next) => {
 
     await newUser.save();
 
-    req.session.isLoggedIn = true;
-    req.session.userId = newUser._id;
-    req.session.userRole = newUser.role;
-    req.session.userName = newUser.name;
+    await establishAuthenticatedSession(req, newUser);
 
     res.redirect("/dashboard");
   } catch (error) {
@@ -165,10 +178,7 @@ exports.postLogin = async (req, res, next) => {
       });
     }
 
-    req.session.isLoggedIn = true;
-    req.session.userId = user._id;
-    req.session.userRole = user.role;
-    req.session.userName = user.name;
+    await establishAuthenticatedSession(req, user);
 
     res.redirect("/dashboard");
   } catch (error) {

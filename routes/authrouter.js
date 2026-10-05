@@ -87,7 +87,6 @@ authrouter.post(
   authcontroller.postLogin,
 );
 
-authrouter.get("/logout", authcontroller.postLogout);
 authrouter.post("/logout", authcontroller.postLogout);
 
 module.exports = authrouter;
