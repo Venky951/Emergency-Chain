@@ -1,7 +1,7 @@
 <%- include('../partials/head', { title: 'Login - Emergency Chain' }) %>
 </head>
 
-<body class="min-h-screen flex items-center justify-center px-4 text-white">
+<body class="min-h-screen flex items-center justify-center px-4 py-8 text-white">
 
   <!-- Background Glow -->
   <div class="absolute w-96 h-96 bg-red-500/20 blur-3xl rounded-full top-10 left-10"></div>
@@ -26,7 +26,7 @@
     <!-- Login Form -->
     <!-- Error Message -->
     <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
-      <div class="bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-xl mb-6 text-sm">
+      <div role="alert" class="bg-red-500/20 border border-red-500 text-red-200 px-4 py-3 rounded-xl mb-6 text-sm">
         <%= errorMessage %>
       </div>
     <% } %>
@@ -37,16 +37,18 @@
       <!-- Email -->
       <div>
 
-        <label class="block mb-2 text-slate-300">
+        <label for="login-email" class="block mb-2 text-slate-200 font-medium">
           Email Address
         </label>
 
         <input
+          id="login-email"
           type="email"
           name="email"
+          autocomplete="email"
           placeholder="Enter your email"
           value="<%= typeof oldInput !== 'undefined' && oldInput.email ? oldInput.email : '' %>"
-          class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+          class="form-control"
           required
         />
 
@@ -55,15 +57,17 @@
       <!-- Password -->
       <div>
 
-        <label class="block mb-2 text-slate-300">
+        <label for="login-password" class="block mb-2 text-slate-200 font-medium">
           Password
         </label>
 
         <input
+          id="login-password"
           type="password"
           name="password"
+          autocomplete="current-password"
           placeholder="Enter your password"
-          class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+          class="form-control"
           required
         />
 
@@ -72,7 +76,7 @@
       <!-- Login Button -->
       <button
         type="submit"
-        class="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:scale-[1.02] transition duration-300 py-3 rounded-xl font-semibold shadow-lg shadow-red-500/30"
+        class="btn-primary w-full py-3 rounded-xl font-semibold shadow-lg shadow-red-500/20 transition-colors"
       >
         Login
       </button>

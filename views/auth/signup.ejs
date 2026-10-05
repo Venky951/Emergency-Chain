@@ -2,7 +2,7 @@
 
 </head>
 
-<body class="min-h-screen flex items-center justify-center px-4 py-10 text-white">
+<body class="min-h-screen flex items-center justify-center px-4 py-8 text-white">
 
   <!-- Background Glow -->
   <div class="absolute w-96 h-96 bg-red-500/20 blur-3xl rounded-full top-10 left-10"></div>
@@ -27,7 +27,7 @@
     <!-- Signup Form -->
     <!-- Error Message -->
     <% if (typeof errorMessage !== 'undefined' && errorMessage) { %>
-      <div class="bg-red-500/20 border border-red-500 text-red-300 px-4 py-3 rounded-xl mb-6 text-sm">
+      <div role="alert" class="bg-red-500/20 border border-red-500 text-red-200 px-4 py-3 rounded-xl mb-6 text-sm">
         <%= errorMessage %>
       </div>
     <% } %>
@@ -40,16 +40,18 @@
 
     <div>
 
-      <label class="block mb-2 text-slate-300">
+      <label for="signup-name" class="block mb-2 text-slate-200 font-medium">
         Full Name
       </label>
 
       <input
+        id="signup-name"
         type="text"
         name="name"
+        autocomplete="name"
         placeholder="Enter your full name"
         value="<%= typeof oldInput !== 'undefined' && oldInput.name ? oldInput.name : '' %>"
-        class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+        class="form-control"
         required
       />
 
@@ -57,16 +59,18 @@
 
     <div>
 
-      <label class="block mb-2 text-slate-300">
+      <label for="signup-phone" class="block mb-2 text-slate-200 font-medium">
         Phone Number
       </label>
 
       <input
+        id="signup-phone"
         type="tel"
         name="phone"
+        autocomplete="tel"
         placeholder="Enter phone number"
         value="<%= typeof oldInput !== 'undefined' && oldInput.phone ? oldInput.phone : '' %>"
-        class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+        class="form-control"
         required
       />
 
@@ -77,16 +81,18 @@
   <!-- Email -->
   <div>
 
-    <label class="block mb-2 text-slate-300">
+    <label for="signup-email" class="block mb-2 text-slate-200 font-medium">
       Email Address
     </label>
 
     <input
+      id="signup-email"
       type="email"
       name="email"
+      autocomplete="email"
       placeholder="Enter your email"
       value="<%= typeof oldInput !== 'undefined' && oldInput.email ? oldInput.email : '' %>"
-      class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+      class="form-control"
       required
     />
 
@@ -97,15 +103,17 @@
 
     <div>
 
-      <label class="block mb-2 text-slate-300">
+      <label for="signup-password" class="block mb-2 text-slate-200 font-medium">
         Password
       </label>
 
       <input
+        id="signup-password"
         type="password"
         name="password"
+        autocomplete="new-password"
         placeholder="Create password"
-        class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+        class="form-control"
         required
       />
 
@@ -113,15 +121,17 @@
 
     <div>
 
-      <label class="block mb-2 text-slate-300">
+      <label for="signup-confirm-password" class="block mb-2 text-slate-200 font-medium">
         Confirm Password
       </label>
 
       <input
+        id="signup-confirm-password"
         type="password"
         name="confirmPassword"
+        autocomplete="new-password"
         placeholder="Confirm password"
-        class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+        class="form-control"
         required
       />
 
@@ -132,16 +142,18 @@
   <!-- Emergency Contact -->
   <div>
 
-    <label class="block mb-2 text-slate-300">
+    <label for="signup-emergency-contact" class="block mb-2 text-slate-200 font-medium">
       Emergency Contact Number
     </label>
 
     <input
+      id="signup-emergency-contact"
       type="tel"
       name="emergencyContact"
+      autocomplete="tel"
       placeholder="Emergency contact number"
       value="<%= typeof oldInput !== 'undefined' && oldInput.emergencyContact ? oldInput.emergencyContact : '' %>"
-      class="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 outline-none focus:border-red-500 transition"
+      class="form-control"
       required
     />
 
@@ -150,9 +162,9 @@
   <input type="hidden" name="role" value="citizen" />
 
   <!-- Terms -->
-  <label class="flex items-start gap-3 text-slate-400 text-sm">
+  <label for="signup-terms" class="flex items-start gap-3 text-slate-300 text-sm">
 
-    <input type="checkbox" name="termsAgreed" required class="mt-1" />
+    <input id="signup-terms" type="checkbox" name="termsAgreed" required class="mt-1" />
 
     I agree to share emergency-related data for safety purposes.
 
@@ -161,7 +173,7 @@
   <!-- Signup Button -->
   <button
     type="submit"
-    class="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:scale-[1.02] transition duration-300 py-3 rounded-xl font-semibold shadow-lg shadow-red-500/30"
+    class="btn-primary w-full py-3 rounded-xl font-semibold shadow-lg shadow-red-500/20 transition-colors"
   >
     Create Account
   </button>
