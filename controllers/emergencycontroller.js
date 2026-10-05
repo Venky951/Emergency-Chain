@@ -5,6 +5,9 @@ const User = require("../models/signup");
 const mongoose = require("mongoose");
 const { catchAsync, logError, logSOS, AppError } = require("../utils/logger");
 const { isValidCoordinates } = require("../utils/location");
+const {
+  createEmergencyContactNotifications,
+} = require("../services/emergencyNotificationService");
 
 let ioInstance;
 const RESPONDER_SEARCH_RADIUS_KM = Number.isFinite(
@@ -197,6 +200,12 @@ exports.createEmergency = catchAsync(async (req, res) => {
         toStatus: "TRIGGERED",
         actor: citizenId,
         actorRole,
+      });
+
+      await createEmergencyContactNotifications({
+        session,
+        emergency,
+        ownerId: citizenId,
       });
     });
 

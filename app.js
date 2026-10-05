@@ -10,7 +10,7 @@ const { Server } = require("socket.io");
 const session = require("express-session");
 const MongoStore = require("connect-mongodb-session")(session);
 const mongoose = require("mongoose");
-const { MongoMemoryServer } = require("mongodb-memory-server");
+const { MongoMemoryReplSet } = require("mongodb-memory-server");
 
 const { errorHandler, logInfo, logError } = require("./utils/logger");
 const { attachUser, requireAuth } = require("./middleware/auth");
@@ -18,6 +18,8 @@ const User = require("./models/signup");
 const Emergency = require("./models/emergency");
 const EmergencyAlert = require("./models/emergencyAlert");
 const EmergencyHistory = require("./models/emergencyhistory");
+const EmergencyContact = require("./models/emergencycontact");
+const EmergencyNotification = require("./models/emergencynotification");
 
 async function resolveMongoUri() {
   if (process.env.MONGODB_URI) {
@@ -28,7 +30,9 @@ async function resolveMongoUri() {
     throw new Error("MONGODB_URI is not set. Startup aborted.");
   }
 
-  const memoryServer = await MongoMemoryServer.create();
+  const memoryServer = await MongoMemoryReplSet.create({
+    replSet: { count: 1 },
+  });
   logInfo("Using in-memory MongoDB for local development");
   return memoryServer.getUri();
 }
@@ -137,6 +141,7 @@ async function startApp() {
   const authRoutes = require("./routes/authrouter");
   const locationRoutes = require("./routes/locationrouter");
   const emergencyRoutes = require("./routes/emergencyrouter");
+  const emergencyContactRoutes = require("./routes/emergencycontactrouter");
   const sosRoutes = require("./routes/sosrouter");
 
   require("./controllers/emergencycontroller").setIO(io);
@@ -160,6 +165,7 @@ async function startApp() {
   app.use(authRoutes);
   app.use(locationRoutes);
   app.use(emergencyRoutes);
+  app.use(emergencyContactRoutes);
   app.use(sosRoutes);
 
   app.use((req, res) => {
@@ -183,6 +189,8 @@ async function startApp() {
     Emergency.createIndexes(),
     EmergencyAlert.createIndexes(),
     EmergencyHistory.createIndexes(),
+    EmergencyContact.createIndexes(),
+    EmergencyNotification.createIndexes(),
   ]);
   logInfo("MongoDB Connected Successfully");
 
