@@ -499,25 +499,27 @@ async function triggerSOS(level) {
       3: "CRITICAL",
     };
 
-    const res = await fetch("/trigger-sos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        emergencyType: emergencyTypes[level],
-        description: `Emergency - Level ${level}`,
-        latitude: currentLat,
-        longitude: currentLng,
-      }),
+    const result = await EC.createCanonicalEmergency({
+      emergencyType: emergencyTypes[level],
+      description: `Emergency - Level ${level}`,
+      latitude: currentLat,
+      longitude: currentLng,
+      onStatus(status) {
+        if (status === "queued") {
+          alert("Queued offline — not yet sent to the server.");
+        } else if (status === "auth-required") {
+          alert("Login required to send queued emergency");
+        } else if (status === "failed") {
+          alert("Emergency could not be sent");
+        }
+      },
     });
 
-    const data = await res.json();
-    if (!res.ok) {
-      alert(data.error || "Unable to create the emergency request.");
-      return;
+    if (result.state === "synced") {
+      const data = result.data;
+      alert(`${data.message}\nStatus: ${data.emergency.status}`);
+      currentEmergencyId = data.emergency.id;
     }
-
-    alert(`${data.message}\nStatus: ${data.emergency.status}`);
-    currentEmergencyId = data.emergency.id;
 
   } catch (err) {
     console.error("[Dashboard] SOS error:", err);

@@ -23,6 +23,10 @@ async function registerServiceWorker() {
       setInterval(() => {
         registration.update();
       }, 60000); // Check every minute
+
+      if (navigator.onLine !== false) {
+        refreshCanonicalEmergencyState();
+      }
     } catch (err) {
       console.error("[PWA] Service Worker registration failed:", err);
     }
@@ -41,7 +45,7 @@ if (document.readyState === "loading") {
 // ========================================
 
 class OfflineDB {
-  constructor(dbName = "EmergencyChain", version = 1) {
+  constructor(dbName = "EmergencyChain", version = 2) {
     this.dbName = dbName;
     this.version = version;
     this.db = null;
@@ -85,6 +89,14 @@ class OfflineDB {
         // Cache metadata
         if (!db.objectStoreNames.contains("cache")) {
           db.createObjectStore("cache", { keyPath: "key" });
+        }
+
+        if (!db.objectStoreNames.contains("canonical-emergencies")) {
+          const emergencyStore = db.createObjectStore("canonical-emergencies", {
+            keyPath: "requestId",
+          });
+          emergencyStore.createIndex("status", "status", { unique: false });
+          emergencyStore.createIndex("queuedAt", "queuedAt", { unique: false });
         }
 
         console.log("[IndexedDB] Database upgraded");
@@ -154,9 +166,409 @@ class OfflineDB {
       };
     });
   }
+
+  async saveCanonicalEmergency(data) {
+    if (!this.db) await this.open();
+
+    const record = {
+      requestId: data.requestId,
+      emergencyType: data.emergencyType,
+      description: data.description || "",
+      latitude: data.latitude,
+      longitude: data.longitude,
+      accuracy: data.accuracy ?? null,
+      status: data.status || "pending",
+      queuedAt: data.queuedAt || new Date().toISOString(),
+      retryCount: data.retryCount || 0,
+      lastError: data.lastError || null,
+      nextRetryAt: data.nextRetryAt || null,
+      lockAt: null,
+    };
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(
+        "canonical-emergencies",
+        "readwrite",
+      );
+      const request = transaction
+        .objectStore("canonical-emergencies")
+        .put(record);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(record);
+    });
+  }
+
+  async getCanonicalEmergency(requestId) {
+    if (!this.db) await this.open();
+
+    return new Promise((resolve, reject) => {
+      const request = this.db
+        .transaction("canonical-emergencies", "readonly")
+        .objectStore("canonical-emergencies")
+        .get(requestId);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result || null);
+    });
+  }
+
+  async listCanonicalEmergencies() {
+    if (!this.db) await this.open();
+
+    return new Promise((resolve, reject) => {
+      const request = this.db
+        .transaction("canonical-emergencies", "readonly")
+        .objectStore("canonical-emergencies")
+        .getAll();
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve(request.result || []);
+    });
+  }
+
+  async claimCanonicalEmergency(requestId) {
+    if (!this.db) await this.open();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(
+        "canonical-emergencies",
+        "readwrite",
+      );
+      const store = transaction.objectStore("canonical-emergencies");
+      const request = store.get(requestId);
+
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const record = request.result;
+        if (!record) {
+          resolve(null);
+          return;
+        }
+
+        if (
+          record.status === "syncing" &&
+          record.lockAt &&
+          Date.now() - Date.parse(record.lockAt) < 30000
+        ) {
+          resolve(null);
+          return;
+        }
+
+        record.status = "syncing";
+        record.lockAt = new Date().toISOString();
+        record.retryCount = (record.retryCount || 0) + 1;
+        const updateRequest = store.put(record);
+        updateRequest.onerror = () => reject(updateRequest.error);
+        updateRequest.onsuccess = () => resolve(record);
+      };
+    });
+  }
+
+  async updateCanonicalEmergency(requestId, updates) {
+    if (!this.db) await this.open();
+
+    return new Promise((resolve, reject) => {
+      const transaction = this.db.transaction(
+        "canonical-emergencies",
+        "readwrite",
+      );
+      const store = transaction.objectStore("canonical-emergencies");
+      const request = store.get(requestId);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        if (!request.result) {
+          resolve(null);
+          return;
+        }
+        const updateRequest = store.put({ ...request.result, ...updates });
+        updateRequest.onerror = () => reject(updateRequest.error);
+        updateRequest.onsuccess = () => resolve(updateRequest.result);
+      };
+    });
+  }
+
+  async removeCanonicalEmergency(requestId) {
+    if (!this.db) await this.open();
+
+    return new Promise((resolve, reject) => {
+      const request = this.db
+        .transaction("canonical-emergencies", "readwrite")
+        .objectStore("canonical-emergencies")
+        .delete(requestId);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    });
+  }
 }
 
 const offlineDB = new OfflineDB();
+
+let canonicalSyncPromise = null;
+const CANONICAL_MAX_RETRIES = 5;
+
+function generateCanonicalRequestId() {
+  if (window.crypto?.randomUUID) {
+    return window.crypto.randomUUID();
+  }
+
+  const bytes = new Uint8Array(16);
+  window.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 0x0f) | 0x40;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = [...bytes].map((byte) => byte.toString(16).padStart(2, "0"));
+  return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex
+    .slice(6, 8)
+    .join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10).join("")}`;
+}
+
+function dispatchCanonicalEmergencyStatus(status, detail = {}) {
+  window.dispatchEvent(
+    new CustomEvent("canonical-emergency-status", {
+      detail: { status, ...detail },
+    }),
+  );
+}
+
+async function registerCanonicalEmergencySync() {
+  if (!("serviceWorker" in navigator)) return false;
+
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    if (!registration.sync?.register) return false;
+    await registration.sync.register("sync-canonical-emergency");
+    return true;
+  } catch (error) {
+    console.warn("[Canonical SOS] Background Sync unavailable:", error);
+    return false;
+  }
+}
+
+async function handleCanonicalSyncResponse(record, response, data) {
+  if ((response.status === 200 || response.status === 201) && data?.success) {
+    await offlineDB.removeCanonicalEmergency(record.requestId);
+    dispatchCanonicalEmergencyStatus("synced", {
+      requestId: record.requestId,
+      emergency: data.emergency,
+    });
+    return { state: "synced", data };
+  }
+
+  if (response.status === 401) {
+    await offlineDB.updateCanonicalEmergency(record.requestId, {
+      status: "auth-required",
+      lockAt: null,
+      lastError: "Login required to send queued emergency",
+    });
+    dispatchCanonicalEmergencyStatus("auth-required", {
+      requestId: record.requestId,
+    });
+    return { state: "auth-required", data };
+  }
+
+  if (response.status === 400) {
+    await offlineDB.updateCanonicalEmergency(record.requestId, {
+      status: "failed",
+      lockAt: null,
+      lastError: data?.error || "Emergency could not be sent",
+      latitude: null,
+      longitude: null,
+      accuracy: null,
+    });
+    dispatchCanonicalEmergencyStatus("failed", {
+      requestId: record.requestId,
+      error: data?.error,
+    });
+    return { state: "failed", data };
+  }
+
+  if (
+    response.status === 409 &&
+    (data?.idempotent === true ||
+      data?.clientRequestId === record.requestId ||
+      data?.emergency?.clientRequestId === record.requestId)
+  ) {
+    await offlineDB.removeCanonicalEmergency(record.requestId);
+    dispatchCanonicalEmergencyStatus("synced", {
+      requestId: record.requestId,
+      emergency: data.emergency,
+    });
+    return { state: "synced", data };
+  }
+
+  if (response.status === 409) {
+    await offlineDB.updateCanonicalEmergency(record.requestId, {
+      status: "conflict",
+      lockAt: null,
+      lastError: data?.error || "Another active emergency already exists",
+      latitude: null,
+      longitude: null,
+      accuracy: null,
+    });
+    dispatchCanonicalEmergencyStatus("conflict", {
+      requestId: record.requestId,
+      error: data?.error,
+    });
+    return { state: "conflict", data };
+  }
+
+  if (response.status >= 500) {
+    throw new Error(`Canonical emergency server error: ${response.status}`);
+  }
+
+  await offlineDB.updateCanonicalEmergency(record.requestId, {
+    status: "failed",
+    lockAt: null,
+    lastError: data?.error || "Emergency could not be sent",
+    latitude: null,
+    longitude: null,
+    accuracy: null,
+  });
+  dispatchCanonicalEmergencyStatus("failed", {
+    requestId: record.requestId,
+    error: data?.error,
+  });
+  return { state: "failed", data };
+}
+
+async function syncCanonicalEmergency(requestId) {
+  if (navigator.onLine === false) {
+    return { state: "queued" };
+  }
+
+  const current = await offlineDB.getCanonicalEmergency(requestId);
+  if (!current) return { state: "synced" };
+  if (
+    current.nextRetryAt &&
+    Date.parse(current.nextRetryAt) > Date.now() &&
+    current.status !== "auth-required"
+  ) {
+    return { state: "queued" };
+  }
+
+  const record = await offlineDB.claimCanonicalEmergency(requestId);
+  if (!record) return { state: "syncing" };
+
+  dispatchCanonicalEmergencyStatus("syncing", { requestId });
+  try {
+    const response = await fetch("/trigger-sos", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        clientRequestId: record.requestId,
+        emergencyType: record.emergencyType,
+        description: record.description,
+        latitude: record.latitude,
+        longitude: record.longitude,
+        accuracy: record.accuracy,
+      }),
+    });
+    let data = null;
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+    return handleCanonicalSyncResponse(record, response, data);
+  } catch (error) {
+    const retryCount = record.retryCount || 1;
+    const shouldRetry = retryCount < CANONICAL_MAX_RETRIES;
+    const updates = shouldRetry
+      ? {
+          status: "pending",
+          lockAt: null,
+          nextRetryAt: new Date(
+            Date.now() + Math.min(300000, 1000 * 2 ** retryCount),
+          ).toISOString(),
+          lastError: "Network unavailable. Retrying later.",
+        }
+      : {
+          status: "failed",
+          lockAt: null,
+          lastError: "Emergency could not be sent",
+          latitude: null,
+          longitude: null,
+          accuracy: null,
+        };
+    await offlineDB.updateCanonicalEmergency(record.requestId, updates);
+    dispatchCanonicalEmergencyStatus(shouldRetry ? "queued" : "failed", {
+      requestId: record.requestId,
+      error: error.message,
+    });
+    return { state: shouldRetry ? "queued" : "failed", error };
+  }
+}
+
+async function syncCanonicalEmergencyQueue() {
+  if (navigator.onLine === false) return;
+  if (canonicalSyncPromise) return canonicalSyncPromise;
+
+  canonicalSyncPromise = (async () => {
+    const records = await offlineDB.listCanonicalEmergencies();
+    const eligible = records.filter((record) =>
+      ["pending", "auth-required"].includes(record.status),
+    );
+    for (const record of eligible) {
+      await syncCanonicalEmergency(record.requestId);
+    }
+  })().finally(() => {
+    canonicalSyncPromise = null;
+  });
+
+  return canonicalSyncPromise;
+}
+
+async function createCanonicalEmergency({
+  emergencyType,
+  description,
+  latitude,
+  longitude,
+  accuracy,
+  onStatus,
+}) {
+  const requestId = generateCanonicalRequestId();
+  const payload = {
+    requestId,
+    emergencyType,
+    description: description || "",
+    latitude,
+    longitude,
+    accuracy: accuracy ?? null,
+    status: "pending",
+    queuedAt: new Date().toISOString(),
+  };
+
+  await offlineDB.saveCanonicalEmergency(payload);
+  const reportStatus = (status) => onStatus?.(status);
+
+  if (navigator.onLine === false) {
+    await registerCanonicalEmergencySync();
+    reportStatus("queued");
+    dispatchCanonicalEmergencyStatus("queued", { requestId });
+    return { state: "queued", requestId };
+  }
+
+  reportStatus("syncing");
+  const result = await syncCanonicalEmergency(requestId);
+  if (result.state === "synced") {
+    reportStatus("synced");
+  } else if (result.state === "auth-required") {
+    reportStatus("auth-required");
+  } else if (result.state === "failed" || result.state === "conflict") {
+    reportStatus("failed");
+  } else if (result.state === "queued") {
+    await registerCanonicalEmergencySync();
+    reportStatus("queued");
+  }
+  return { ...result, requestId };
+}
+
+function refreshCanonicalEmergencyState() {
+  return syncCanonicalEmergencyQueue().catch((error) => {
+    console.warn("[Canonical SOS] Queue refresh failed:", error);
+  });
+}
 
 // ========================================
 // 3. GEOLOCATION & LOCATION TRACKING
@@ -306,6 +718,8 @@ function initializeSocket() {
     console.log("[Socket] Connected:", socket.id);
     document.body.classList.remove("offline");
     document.body.classList.add("online");
+    refreshCanonicalEmergencyState();
+    window.dispatchEvent(new CustomEvent("app-socket-connected"));
   });
 
   socket.on("disconnect", () => {
@@ -403,6 +817,8 @@ window.addEventListener("online", async () => {
     console.log("[App] Background sync registered");
   }
 
+  refreshCanonicalEmergencyState();
+
   // Dispatch custom event
   window.dispatchEvent(new CustomEvent("app-online"));
 });
@@ -419,6 +835,12 @@ window.addEventListener("offline", () => {
   window.dispatchEvent(new CustomEvent("app-offline"));
 });
 
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden && navigator.onLine !== false) {
+    refreshCanonicalEmergencyState();
+  }
+});
+
 // ========================================
 // 7. EXPORTS
 // ========================================
@@ -428,6 +850,10 @@ window.EC = {
   locationTracker,
   initializeSocket,
   registerEmergencyUpdateListener,
+  createCanonicalEmergency,
+  syncCanonicalEmergencyQueue,
+  refreshCanonicalEmergencyState,
+  registerCanonicalEmergencySync,
   showNotification,
   requestNotificationPermission,
 };

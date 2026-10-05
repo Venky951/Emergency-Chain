@@ -197,44 +197,39 @@ async function createEmergency(emergencyType, description) {
     return;
   }
 
-  if (statusEl) {
-    statusEl.textContent = "Creating emergency request...";
-  }
-
   try {
-    const response = await fetch("/trigger-sos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        emergencyType,
-        description,
-        latitude: currentLat,
-        longitude: currentLng,
-        accuracy: currentAccuracy,
-      }),
+    const result = await EC.createCanonicalEmergency({
+      emergencyType,
+      description,
+      latitude: currentLat,
+      longitude: currentLng,
+      accuracy: currentAccuracy,
+      onStatus(status) {
+        if (status === "queued") {
+          if (topStatusEl) topStatusEl.textContent = "Queued offline — not yet sent to the server.";
+          if (statusEl) statusEl.textContent = "Queued offline — not yet sent to the server.";
+        } else if (status === "syncing") {
+          if (statusEl) statusEl.textContent = "Sending emergency...";
+        } else if (status === "auth-required") {
+          if (statusEl) statusEl.textContent = "Login required to send queued emergency";
+        } else if (status === "failed") {
+          if (statusEl) statusEl.textContent = "Emergency could not be sent";
+        }
+      },
     });
-    const data = await response.json();
 
-    if (!response.ok) {
-      if (statusEl) {
-        statusEl.textContent = data.error || "Unable to create the emergency request.";
-      }
-      return;
-    }
-
-    if (topStatusEl) {
-      topStatusEl.textContent = "Emergency request created";
-    }
-    currentEmergencyId = data.emergency.id;
-    document.getElementById("cancelEmergencyButton").classList.remove("hidden");
-    document.getElementById("searchRespondersButton").classList.remove("hidden");
-    if (statusEl) {
-      statusEl.textContent = `Status: ${data.emergency.status}`;
+    if (result.state === "synced") {
+      const data = result.data;
+      if (topStatusEl) topStatusEl.textContent = "Emergency created";
+      currentEmergencyId = data.emergency.id;
+      document.getElementById("cancelEmergencyButton").classList.remove("hidden");
+      document.getElementById("searchRespondersButton").classList.remove("hidden");
+      if (statusEl) statusEl.textContent = `Status: ${data.emergency.status}`;
     }
   } catch (error) {
     console.error("Emergency creation failed:", error);
     if (statusEl) {
-      statusEl.textContent = "Unable to create the emergency request.";
+      statusEl.textContent = "Emergency could not be sent";
     }
   }
 }
@@ -261,6 +256,29 @@ function handleEmergencyUpdated(data) {
 if (socket) {
   EC.registerEmergencyUpdateListener(socket, handleEmergencyUpdated);
 }
+
+async function refreshCanonicalEmergencyState() {
+  if (!currentEmergencyId) return;
+
+  try {
+    const response = await fetch(`/emergency/${currentEmergencyId}/history`, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    const latest = data.history?.at(-1);
+    if (latest) {
+      handleEmergencyUpdated({
+        emergencyId: currentEmergencyId,
+        status: latest.toStatus,
+      });
+    }
+  } catch (error) {
+    console.warn("Emergency state refresh failed:", error);
+  }
+}
+
+window.addEventListener("app-socket-connected", refreshCanonicalEmergencyState);
 
 async function cancelEmergency() {
   const topStatusEl = document.getElementById("statusTextTop");

@@ -164,8 +164,231 @@ self.addEventListener("sync", (event) => {
     event.waitUntil(syncPendingSOS());
   } else if (event.tag === "sync-location") {
     event.waitUntil(syncPendingLocations());
+  } else if (event.tag === "sync-canonical-emergency") {
+    event.waitUntil(syncPendingCanonicalEmergencies());
   }
 });
+
+async function notifyCanonicalClients(message) {
+  const clients = await self.clients.matchAll({ type: "window" });
+  for (const client of clients) {
+    client.postMessage({ type: "canonical-emergency-status", ...message });
+  }
+}
+
+function canonicalStoreRequest(storeName, mode, operation) {
+  return new Promise((resolve, reject) => {
+    openOfflineDB().then((db) => {
+      const transaction = db.transaction(storeName, mode);
+      const store = transaction.objectStore(storeName);
+      operation(store, resolve, reject);
+      transaction.onerror = () => reject(transaction.error);
+    }, reject);
+  });
+}
+
+async function claimCanonicalEmergency(requestId) {
+  return canonicalStoreRequest(
+    "canonical-emergencies",
+    "readwrite",
+    (store, resolve, reject) => {
+      const request = store.get(requestId);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const record = request.result;
+        if (!record) return resolve(null);
+        if (
+          record.status === "syncing" &&
+          record.lockAt &&
+          Date.now() - Date.parse(record.lockAt) < 30000
+        ) {
+          return resolve(null);
+        }
+        record.status = "syncing";
+        record.lockAt = new Date().toISOString();
+        record.retryCount = (record.retryCount || 0) + 1;
+        const update = store.put(record);
+        update.onerror = () => reject(update.error);
+        update.onsuccess = () => resolve(record);
+      };
+    },
+  );
+}
+
+async function updateCanonicalEmergency(requestId, updates) {
+  return canonicalStoreRequest(
+    "canonical-emergencies",
+    "readwrite",
+    (store, resolve, reject) => {
+      const request = store.get(requestId);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        if (!request.result) return resolve(null);
+        const update = store.put({ ...request.result, ...updates });
+        update.onerror = () => reject(update.error);
+        update.onsuccess = () => resolve(update.result);
+      };
+    },
+  );
+}
+
+async function removeCanonicalEmergency(requestId) {
+  return canonicalStoreRequest(
+    "canonical-emergencies",
+    "readwrite",
+    (store, resolve, reject) => {
+      const request = store.delete(requestId);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => resolve();
+    },
+  );
+}
+
+async function syncCanonicalRecord(record) {
+  try {
+    const response = await fetch("/trigger-sos", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify({
+        clientRequestId: record.requestId,
+        emergencyType: record.emergencyType,
+        description: record.description,
+        latitude: record.latitude,
+        longitude: record.longitude,
+        accuracy: record.accuracy,
+      }),
+    });
+    let data = {};
+    try {
+      data = await response.json();
+    } catch {
+      data = {};
+    }
+
+    if ((response.status === 200 || response.status === 201) && data.success) {
+      await removeCanonicalEmergency(record.requestId);
+      await notifyCanonicalClients({
+        status: "synced",
+        requestId: record.requestId,
+        emergency: data.emergency,
+      });
+      return;
+    }
+
+    if (
+      response.status === 409 &&
+      (data.idempotent === true ||
+        data.emergency?.clientRequestId === record.requestId)
+    ) {
+      await removeCanonicalEmergency(record.requestId);
+      await notifyCanonicalClients({
+        status: "synced",
+        requestId: record.requestId,
+        emergency: data.emergency,
+      });
+      return;
+    }
+
+    if (response.status === 401) {
+      await updateCanonicalEmergency(record.requestId, {
+        status: "auth-required",
+        lockAt: null,
+        lastError: "Login required to send queued emergency",
+      });
+      await notifyCanonicalClients({
+        status: "auth-required",
+        requestId: record.requestId,
+      });
+      return;
+    }
+
+    if (response.status === 400 || response.status === 409) {
+      await updateCanonicalEmergency(record.requestId, {
+        status: response.status === 409 ? "conflict" : "failed",
+        lockAt: null,
+        lastError: data.error || "Emergency could not be sent",
+        latitude: null,
+        longitude: null,
+        accuracy: null,
+      });
+      await notifyCanonicalClients({
+        status: response.status === 409 ? "conflict" : "failed",
+        requestId: record.requestId,
+        error: data.error,
+      });
+      return;
+    }
+
+    if (response.status < 500) {
+      await updateCanonicalEmergency(record.requestId, {
+        status: "failed",
+        lockAt: null,
+        lastError: "Emergency could not be sent",
+        latitude: null,
+        longitude: null,
+        accuracy: null,
+      });
+      await notifyCanonicalClients({
+        status: "failed",
+        requestId: record.requestId,
+      });
+      return;
+    }
+
+    throw new Error(`Canonical emergency server error: ${response.status}`);
+  } catch (error) {
+    const retryCount = record.retryCount || 1;
+    if (retryCount >= 5) {
+      await updateCanonicalEmergency(record.requestId, {
+        status: "failed",
+        lockAt: null,
+        lastError: "Emergency could not be sent",
+        latitude: null,
+        longitude: null,
+        accuracy: null,
+      });
+      await notifyCanonicalClients({
+        status: "failed",
+        requestId: record.requestId,
+      });
+      return;
+    }
+
+    await updateCanonicalEmergency(record.requestId, {
+      status: "pending",
+      lockAt: null,
+      nextRetryAt: new Date(
+        Date.now() + Math.min(300000, 1000 * 2 ** retryCount),
+      ).toISOString(),
+      lastError: "Network unavailable. Retrying later.",
+    });
+    throw error;
+  }
+}
+
+async function syncPendingCanonicalEmergencies() {
+  const db = await openOfflineDB();
+  const records = await new Promise((resolve, reject) => {
+    const request = db
+      .transaction("canonical-emergencies", "readonly")
+      .objectStore("canonical-emergencies")
+      .getAll();
+    request.onerror = () => reject(request.error);
+    request.onsuccess = () => resolve(request.result || []);
+  });
+
+  for (const record of records) {
+    if (record.status !== "pending") continue;
+    if (record.nextRetryAt && Date.parse(record.nextRetryAt) > Date.now())
+      continue;
+    const claimed = await claimCanonicalEmergency(record.requestId);
+    if (claimed) await syncCanonicalRecord(claimed);
+  }
+}
 
 /**
  * Sync pending SOS alerts
@@ -239,7 +462,7 @@ async function syncPendingLocations() {
  */
 function openOfflineDB() {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open("EmergencyChain", 1);
+    const request = indexedDB.open("EmergencyChain", 2);
 
     request.onerror = () => reject(request.error);
     request.onsuccess = () => resolve(request.result);
@@ -259,6 +482,18 @@ function openOfflineDB() {
           keyPath: "id",
         });
         locStore.createIndex("status", "status", { unique: false });
+      }
+
+      if (!db.objectStoreNames.contains("cache")) {
+        db.createObjectStore("cache", { keyPath: "key" });
+      }
+
+      if (!db.objectStoreNames.contains("canonical-emergencies")) {
+        const emergencyStore = db.createObjectStore("canonical-emergencies", {
+          keyPath: "requestId",
+        });
+        emergencyStore.createIndex("status", "status", { unique: false });
+        emergencyStore.createIndex("queuedAt", "queuedAt", { unique: false });
       }
     };
   });

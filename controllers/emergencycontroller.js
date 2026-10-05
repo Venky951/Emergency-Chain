@@ -2,6 +2,7 @@ const EmergencyAlert = require("../models/emergencyAlert");
 const Emergency = require("../models/emergency");
 const EmergencyHistory = require("../models/emergencyhistory");
 const User = require("../models/signup");
+const crypto = require("node:crypto");
 const mongoose = require("mongoose");
 const { catchAsync, logError, logSOS, AppError } = require("../utils/logger");
 const { isValidCoordinates } = require("../utils/location");
@@ -109,6 +110,8 @@ const createHistoryEntry = async ({
 
 exports.createEmergency = catchAsync(async (req, res) => {
   const citizenId = req.session.userId;
+  const suppliedRequestId = String(req.body.clientRequestId ?? "").trim();
+  const clientRequestId = suppliedRequestId || crypto.randomUUID();
   const latitude = Number(req.body.latitude);
   const longitude = Number(req.body.longitude);
   const accuracy =
@@ -141,6 +144,16 @@ exports.createEmergency = catchAsync(async (req, res) => {
       .json({ error: "A valid emergency type is required." });
   }
 
+  if (
+    !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      clientRequestId,
+    )
+  ) {
+    return res
+      .status(400)
+      .json({ error: "A valid client request ID is required." });
+  }
+
   if (description.length > 1000) {
     return res
       .status(400)
@@ -155,9 +168,23 @@ exports.createEmergency = catchAsync(async (req, res) => {
 
   const session = await mongoose.startSession();
   let emergency;
+  let alreadyCreated = false;
 
   try {
     await session.withTransaction(async () => {
+      const existingEmergency = await Emergency.findOne({
+        citizen: citizenId,
+        clientRequestId,
+      })
+        .session(session)
+        .lean();
+
+      if (existingEmergency) {
+        emergency = existingEmergency;
+        alreadyCreated = true;
+        return;
+      }
+
       const activeEmergency = await Emergency.findOne({
         citizen: citizenId,
         status: { $in: Emergency.getActiveStatuses() },
@@ -183,6 +210,7 @@ exports.createEmergency = catchAsync(async (req, res) => {
             citizen: citizenId,
             emergencyType,
             description: description || null,
+            clientRequestId,
             latitude,
             longitude,
             locationAccuracy: accuracy,
@@ -209,18 +237,44 @@ exports.createEmergency = catchAsync(async (req, res) => {
       });
     });
 
-    emitEmergencyUpdated(emergency);
+    if (!alreadyCreated) {
+      emitEmergencyUpdated(emergency);
+    }
 
-    return res.status(201).json({
+    return res.status(alreadyCreated ? 200 : 201).json({
       success: true,
-      message: "Emergency request created",
+      message: alreadyCreated
+        ? "Emergency request already created"
+        : "Emergency request created",
+      idempotent: alreadyCreated,
       emergency: {
         id: emergency._id,
         status: emergency.status,
+        clientRequestId,
       },
     });
   } catch (error) {
-    if (error.statusCode === 409 || error.code === 11000) {
+    if (error.code === 11000) {
+      const existingEmergency = await Emergency.findOne({
+        citizen: citizenId,
+        clientRequestId,
+      }).lean();
+
+      if (existingEmergency) {
+        return res.status(200).json({
+          success: true,
+          message: "Emergency request already created",
+          idempotent: true,
+          emergency: {
+            id: existingEmergency._id,
+            status: existingEmergency.status,
+            clientRequestId,
+          },
+        });
+      }
+    }
+
+    if (error.statusCode === 409) {
       return res.status(409).json({
         error: "You already have an active emergency request.",
         status: "TRIGGERED",

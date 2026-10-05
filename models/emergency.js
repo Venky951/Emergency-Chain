@@ -40,6 +40,15 @@ const emergencySchema = new mongoose.Schema(
       default: null,
     },
 
+    clientRequestId: {
+      type: String,
+      trim: true,
+      maxlength: 100,
+      match:
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+      default: null,
+    },
+
     latitude: {
       type: Number,
       required: true,
@@ -89,6 +98,15 @@ emergencySchema.index(
     name: "citizen_active_emergency_unique",
     unique: true,
     partialFilterExpression: { status: { $in: ACTIVE_STATUSES } },
+  },
+);
+
+emergencySchema.index(
+  { citizen: 1, clientRequestId: 1 },
+  {
+    name: "citizen_client_request_unique",
+    unique: true,
+    partialFilterExpression: { clientRequestId: { $type: "string" } },
   },
 );
 
