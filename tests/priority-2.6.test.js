@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const mongoose = require("mongoose");
-const { MongoMemoryServer } = require("mongodb-memory-server");
+const { MongoMemoryReplSet } = require("mongodb-memory-server");
 
 const User = require("../models/signup");
 const Emergency = require("../models/emergency");
@@ -98,7 +98,9 @@ async function updateStatus(emergency, user, status) {
 }
 
 test.before(async () => {
-  mongoServer = await MongoMemoryServer.create();
+  mongoServer = await MongoMemoryReplSet.create({
+    replSet: { count: 1 },
+  });
   await mongoose.connect(mongoServer.getUri());
 });
 

@@ -17,6 +17,7 @@ const { attachUser, requireAuth } = require("./middleware/auth");
 const User = require("./models/signup");
 const Emergency = require("./models/emergency");
 const EmergencyAlert = require("./models/emergencyAlert");
+const EmergencyHistory = require("./models/emergencyhistory");
 
 async function resolveMongoUri() {
   if (process.env.MONGODB_URI) {
@@ -181,6 +182,7 @@ async function startApp() {
     User.createIndexes(),
     Emergency.createIndexes(),
     EmergencyAlert.createIndexes(),
+    EmergencyHistory.createIndexes(),
   ]);
   logInfo("MongoDB Connected Successfully");
 

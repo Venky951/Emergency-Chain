@@ -145,6 +145,11 @@ router.get(
   requireRole(...responderRoles),
   emergencyController.getSearchingEmergencies,
 );
+router.get(
+  "/emergency/:id/history",
+  requireAuth,
+  emergencyController.getEmergencyHistory,
+);
 router.post(
   "/api/emergency/:id/accept",
   requireAuth,

@@ -1,5 +1,6 @@
 const EmergencyAlert = require("../models/emergencyAlert");
 const Emergency = require("../models/emergency");
+const EmergencyHistory = require("../models/emergencyhistory");
 const User = require("../models/signup");
 const mongoose = require("mongoose");
 const { catchAsync, logError, logSOS, AppError } = require("../utils/logger");
@@ -66,6 +67,43 @@ const releaseAssignedResponder = async (emergencyId, responderId) => {
   );
 };
 
+const getActorRole = async (req, session) => {
+  if (req.user?.role) return req.user.role;
+  if (req.session?.userRole) return req.session.userRole;
+
+  const actor = await User.findById(req.session.userId)
+    .select("role")
+    .session(session)
+    .lean();
+  return actor?.role;
+};
+
+const createHistoryEntry = async ({
+  session,
+  emergency,
+  event,
+  fromStatus,
+  toStatus,
+  actor,
+  actorRole,
+  assignedResponder = null,
+}) => {
+  await EmergencyHistory.create(
+    [
+      {
+        emergency: emergency._id,
+        event,
+        fromStatus,
+        toStatus,
+        actor,
+        actorRole,
+        assignedResponder,
+      },
+    ],
+    { session },
+  );
+};
+
 exports.createEmergency = catchAsync(async (req, res) => {
   const citizenId = req.session.userId;
   const latitude = Number(req.body.latitude);
@@ -112,27 +150,54 @@ exports.createEmergency = catchAsync(async (req, res) => {
       .json({ error: "Location accuracy must be a valid positive number." });
   }
 
+  const session = await mongoose.startSession();
+  let emergency;
+
   try {
-    const activeEmergency = await Emergency.findOne({
-      citizen: citizenId,
-      status: { $in: Emergency.getActiveStatuses() },
-    });
+    await session.withTransaction(async () => {
+      const activeEmergency = await Emergency.findOne({
+        citizen: citizenId,
+        status: { $in: Emergency.getActiveStatuses() },
+      })
+        .session(session)
+        .lean();
 
-    if (activeEmergency) {
-      return res.status(409).json({
-        error: "You already have an active emergency request.",
-        status: activeEmergency.status,
+      if (activeEmergency) {
+        throw new AppError(
+          "You already have an active emergency request.",
+          409,
+        );
+      }
+
+      const actorRole = await getActorRole(req, session);
+      if (!actorRole) {
+        throw new AppError("Authenticated user was not found.", 401);
+      }
+
+      [emergency] = await Emergency.create(
+        [
+          {
+            citizen: citizenId,
+            emergencyType,
+            description: description || null,
+            latitude,
+            longitude,
+            locationAccuracy: accuracy,
+            status: "TRIGGERED",
+          },
+        ],
+        { session },
+      );
+
+      await createHistoryEntry({
+        session,
+        emergency,
+        event: "CREATED",
+        fromStatus: null,
+        toStatus: "TRIGGERED",
+        actor: citizenId,
+        actorRole,
       });
-    }
-
-    const emergency = await Emergency.create({
-      citizen: citizenId,
-      emergencyType,
-      description: description || null,
-      latitude,
-      longitude,
-      locationAccuracy: accuracy,
-      status: "TRIGGERED",
     });
 
     emitEmergencyUpdated(emergency);
@@ -146,17 +211,23 @@ exports.createEmergency = catchAsync(async (req, res) => {
       },
     });
   } catch (error) {
-    if (error.code === 11000) {
+    if (error.statusCode === 409 || error.code === 11000) {
       return res.status(409).json({
         error: "You already have an active emergency request.",
         status: "TRIGGERED",
       });
     }
 
+    if (error.statusCode === 401) {
+      return res.status(401).json({ error: error.message });
+    }
+
     logError("Emergency creation failed", error, { citizenId });
     return res.status(500).json({
       error: "Unable to create the emergency request.",
     });
+  } finally {
+    await session.endSession();
   }
 });
 
@@ -231,14 +302,53 @@ exports.updateEmergencyStatus = catchAsync(async (req, res) => {
   const expectedStatus = emergency.status;
   const updatedAt = new Date();
   let updatedEmergency;
+  const session = await mongoose.startSession();
 
   try {
-    updatedEmergency = await Emergency.findOneAndUpdate(
-      { _id: emergency._id, status: expectedStatus },
-      { $set: { status: requestedStatus, updatedAt } },
-      { new: true, runValidators: true },
-    );
+    await session.withTransaction(async () => {
+      const actorRole = await getActorRole(req, session);
+      if (!actorRole) {
+        throw new AppError("Authenticated user was not found.", 401);
+      }
+
+      updatedEmergency = await Emergency.findOneAndUpdate(
+        { _id: emergency._id, status: expectedStatus },
+        { $set: { status: requestedStatus, updatedAt } },
+        { new: true, runValidators: true, session },
+      );
+
+      if (!updatedEmergency) {
+        throw new AppError(
+          `Cannot change emergency status from ${expectedStatus} to ${requestedStatus}.`,
+          409,
+        );
+      }
+
+      await createHistoryEntry({
+        session,
+        emergency: updatedEmergency,
+        event: requestedStatus,
+        fromStatus: expectedStatus,
+        toStatus: requestedStatus,
+        actor: req.session.userId,
+        actorRole,
+        assignedResponder: updatedEmergency.assignedResponder,
+      });
+    });
   } catch (error) {
+    await session.endSession();
+
+    if (error.statusCode === 409) {
+      return res.status(409).json({
+        error: error.message,
+        status: expectedStatus,
+      });
+    }
+
+    if (error.statusCode === 401) {
+      return res.status(401).json({ error: error.message });
+    }
+
     logError("Emergency status update failed", error, {
       emergencyId: emergency._id,
       citizenId: req.session.userId,
@@ -247,12 +357,7 @@ exports.updateEmergencyStatus = catchAsync(async (req, res) => {
     return res.status(500).json({ error: "Unable to update the emergency." });
   }
 
-  if (!updatedEmergency) {
-    return res.status(409).json({
-      error: `Cannot change emergency status from ${expectedStatus} to ${requestedStatus}.`,
-      status: expectedStatus,
-    });
-  }
+  await session.endSession();
 
   if (["CANCELLED", "RESOLVED"].includes(requestedStatus)) {
     try {
@@ -370,6 +475,43 @@ exports.getSearchingEmergencies = catchAsync(async (req, res) => {
   });
 });
 
+exports.getEmergencyHistory = catchAsync(async (req, res) => {
+  if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+    return res.status(404).json({ error: "Emergency not found." });
+  }
+
+  const emergency = await Emergency.findById(req.params.id).select(
+    "citizen assignedResponder",
+  );
+  if (!emergency) {
+    return res.status(404).json({ error: "Emergency not found." });
+  }
+
+  const requesterId = String(req.session.userId);
+  const isCitizen = String(emergency.citizen) === requesterId;
+  const isAssignedResponder =
+    emergency.assignedResponder &&
+    String(emergency.assignedResponder) === requesterId;
+
+  if (!isCitizen && !isAssignedResponder) {
+    return res.status(403).json({
+      error: "You cannot access this emergency history.",
+    });
+  }
+
+  const history = await EmergencyHistory.find({ emergency: emergency._id })
+    .sort({ createdAt: 1, _id: 1 })
+    .select(
+      "emergency event fromStatus toStatus actor actorRole assignedResponder createdAt",
+    )
+    .lean();
+
+  return res.status(200).json({
+    success: true,
+    history,
+  });
+});
+
 exports.acceptEmergency = catchAsync(async (req, res) => {
   if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
     return res.status(404).json({ error: "Emergency not found." });
@@ -393,51 +535,67 @@ exports.acceptEmergency = catchAsync(async (req, res) => {
   }
 
   const responderId = req.session.userId;
-  const responder = await User.findOneAndUpdate(
-    {
-      _id: responderId,
-      role: { $in: RESPONDER_ROLES },
-      isActive: true,
-      isAvailable: true,
-    },
-    { $set: { isAvailable: false } },
-    { new: true },
-  ).select("_id role name");
+  const session = await mongoose.startSession();
+  let assignedEmergency;
 
-  if (!responder) {
-    return res.status(409).json({
-      error: "Responder is unavailable for a new assignment.",
-    });
-  }
-
-  const assignedAt = new Date();
   try {
-    const assignedEmergency = await Emergency.findOneAndUpdate(
-      {
-        _id: req.params.id,
-        status: "SEARCHING_FOR_HELP",
-        assignedResponder: null,
-      },
-      {
-        $set: {
-          assignedResponder: responder._id,
-          assignedAt,
-          status: "RESPONDER_ASSIGNED",
-          updatedAt: assignedAt,
+    await session.withTransaction(async () => {
+      const responder = await User.findOneAndUpdate(
+        {
+          _id: responderId,
+          role: { $in: RESPONDER_ROLES },
+          isActive: true,
+          isAvailable: true,
         },
-      },
-      { new: true, runValidators: true },
-    );
+        { $set: { isAvailable: false } },
+        { new: true, session },
+      )
+        .select("_id role name")
+        .lean();
 
-    if (!assignedEmergency) {
-      await User.updateOne(
-        { _id: responder._id, isAvailable: false },
-        { $set: { isAvailable: true } },
+      if (!responder) {
+        throw new AppError(
+          "Responder is unavailable for a new assignment.",
+          409,
+        );
+      }
+
+      const assignedAt = new Date();
+      assignedEmergency = await Emergency.findOneAndUpdate(
+        {
+          _id: req.params.id,
+          status: "SEARCHING_FOR_HELP",
+          assignedResponder: null,
+        },
+        {
+          $set: {
+            assignedResponder: responder._id,
+            assignedAt,
+            status: "RESPONDER_ASSIGNED",
+            updatedAt: assignedAt,
+          },
+        },
+        { new: true, runValidators: true, session },
       );
-      return res.status(409).json({
-        error: "Emergency is no longer available for acceptance.",
+
+      if (!assignedEmergency) {
+        throw new AppError(
+          "Emergency is no longer available for acceptance.",
+          409,
+        );
+      }
+
+      await createHistoryEntry({
+        session,
+        emergency: assignedEmergency,
+        event: "RESPONDER_ASSIGNED",
+        fromStatus: "SEARCHING_FOR_HELP",
+        toStatus: "RESPONDER_ASSIGNED",
+        actor: responder._id,
+        actorRole: responder.role,
+        assignedResponder: responder._id,
       });
-    }
+    });
 
     emitEmergencyUpdated(assignedEmergency);
 
@@ -447,17 +605,21 @@ exports.acceptEmergency = catchAsync(async (req, res) => {
       emergency: assignedEmergency,
     });
   } catch (error) {
-    await User.updateOne(
-      { _id: responder._id, isAvailable: false },
-      { $set: { isAvailable: true } },
-    );
+    await session.endSession();
+
+    if (error.statusCode === 409) {
+      return res.status(409).json({ error: error.message });
+    }
+
     logError("Emergency acceptance failed", error, {
       emergencyId: req.params.id,
-      responderId: responder._id,
+      responderId,
     });
     return res.status(500).json({
       error: "Unable to accept the emergency.",
     });
+  } finally {
+    if (session.hasEnded === false) await session.endSession();
   }
 });
 
