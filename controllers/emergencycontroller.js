@@ -49,6 +49,23 @@ const emitEmergencyUpdated = (emergency) => {
   }
 };
 
+const releaseAssignedResponder = async (emergencyId, responderId) => {
+  if (!responderId) return;
+
+  const activeAssignment = await Emergency.exists({
+    _id: { $ne: emergencyId },
+    assignedResponder: responderId,
+    status: { $in: Emergency.getActiveStatuses() },
+  });
+
+  if (activeAssignment) return;
+
+  await User.updateOne(
+    { _id: responderId, isAvailable: false },
+    { $set: { isAvailable: true } },
+  );
+};
+
 exports.createEmergency = catchAsync(async (req, res) => {
   const citizenId = req.session.userId;
   const latitude = Number(req.body.latitude);
@@ -211,21 +228,16 @@ exports.updateEmergencyStatus = catchAsync(async (req, res) => {
     });
   }
 
+  const expectedStatus = emergency.status;
+  const updatedAt = new Date();
+  let updatedEmergency;
+
   try {
-    emergency.status = requestedStatus;
-    emergency.updatedAt = new Date();
-    await emergency.save();
-
-    emitEmergencyUpdated(emergency);
-
-    return res.status(200).json({
-      success: true,
-      message:
-        requestedStatus === "CANCELLED"
-          ? "Emergency cancelled"
-          : "Emergency status updated",
-      emergency,
-    });
+    updatedEmergency = await Emergency.findOneAndUpdate(
+      { _id: emergency._id, status: expectedStatus },
+      { $set: { status: requestedStatus, updatedAt } },
+      { new: true, runValidators: true },
+    );
   } catch (error) {
     logError("Emergency status update failed", error, {
       emergencyId: emergency._id,
@@ -234,6 +246,39 @@ exports.updateEmergencyStatus = catchAsync(async (req, res) => {
     });
     return res.status(500).json({ error: "Unable to update the emergency." });
   }
+
+  if (!updatedEmergency) {
+    return res.status(409).json({
+      error: `Cannot change emergency status from ${expectedStatus} to ${requestedStatus}.`,
+      status: expectedStatus,
+    });
+  }
+
+  if (["CANCELLED", "RESOLVED"].includes(requestedStatus)) {
+    try {
+      await releaseAssignedResponder(
+        updatedEmergency._id,
+        updatedEmergency.assignedResponder,
+      );
+    } catch (error) {
+      logError("Responder availability cleanup failed", error, {
+        emergencyId: updatedEmergency._id,
+        responderId: updatedEmergency.assignedResponder,
+        status: requestedStatus,
+      });
+    }
+  }
+
+  emitEmergencyUpdated(updatedEmergency);
+
+  return res.status(200).json({
+    success: true,
+    message:
+      requestedStatus === "CANCELLED"
+        ? "Emergency cancelled"
+        : "Emergency status updated",
+    emergency: updatedEmergency,
+  });
 });
 
 exports.getNearbyResponders = catchAsync(async (req, res) => {
