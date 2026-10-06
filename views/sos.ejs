@@ -1,145 +1,30 @@
-<%- include('partials/head', { title: 'EmergencyChain - Intelligent Emergency Response System' }) %>
+<%- include('partials/head', { title: 'Emergency SOS - EmergencyChain' }) %>
 
 <body class="bg-slate-950 text-white min-h-screen">
-
 <%- include('partials/nav') %>
 
-
-<section class="px-6 md:px-16 py-10">
-
-  <div class="glass rounded-3xl p-8 max-w-5xl mx-auto">
-
-    <h1 class="page-title mb-2">Emergency SOS System</h1>
-
-    <p id="statusTextTop" role="status" aria-live="assertive" aria-atomic="true" class="text-green-300 mb-6 font-medium">
-      System Ready...
-    </p>
-
-    <!-- ✅ LEVELS FIRST -->
-
-    <!-- LEVEL 1 -->
-    <div class="bg-slate-900 p-6 rounded-2xl mb-4">
-      <h2 class="text-xl font-bold text-green-400">🟢 Level 1</h2>
-
-      <button id="level1Button" class="btn-success px-4 py-3 rounded-xl font-bold mt-3 transition-colors">
-        Trigger
-      </button>
+<main class="px-4 sm:px-6 md:px-16 py-6 sm:py-10 max-w-5xl mx-auto">
+  <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+    <div>
+      <h1 class="page-title mb-2">Emergency SOS</h1>
+      <p class="body-copy">Send a request and follow its progress here.</p>
     </div>
-
-    <!-- LEVEL 2 -->
-    <div class="bg-slate-900 p-6 rounded-2xl mb-4">
-      <h2 class="text-xl font-bold text-orange-400">🟠 Level 2</h2>
-
-      <label for="reason" class="block mt-3 mb-2 text-slate-200 font-medium">Reason</label>
-      <select id="reason" class="form-control">
-        <option>Vehicle broke down</option>
-        <option>Someone chasing me</option>
-        <option>Medical emergency</option>
-        <option>Feeling unsafe</option>
-        <option>Accident nearby</option>
-      </select>
-
-      <label for="msg" class="block mt-3 mb-2 text-slate-200 font-medium">Additional details</label>
-      <textarea
-        id="msg"
-        class="form-control min-h-[6rem]"
-        placeholder="Message..."
-      ></textarea>
-
-      <button id="level2Button" class="btn-warning px-4 py-3 rounded-xl font-bold mt-3 transition-colors">
-        Trigger
-      </button>
-    </div>
-
-    <!-- LEVEL 3 -->
-    <div class="bg-slate-900 p-6 rounded-2xl mb-6">
-      <h2 class="text-xl font-bold text-red-400">🔴 Level 3</h2>
-
-      <button id="level3Button" class="btn-danger px-6 py-3 rounded-xl font-bold mt-3 transition-colors">
-        SOS
-      </button>
-    </div>
-</div>
-</section>
-<section class="px-6 md:px-16 py-10">
-  <div class="glass rounded-3xl p-8">
-    <div class="flex justify-between items-center mb-8 flex-wrap gap-4">
-      <div>
-        <h2 class="section-title mb-2">Emergency SOS</h2>
-        <p class="helper-copy">This release supports authenticated SOS requests and location updates. Dispatch and responder notification flows are intentionally limited to the current backend scope.</p>
-      </div>
-      <div class="bg-green-500/20 text-green-400 px-4 py-2 rounded-full text-sm">● Ready</div>
-    </div>
-
-    <div class="grid md:grid-cols-3 gap-6">
-      <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
-        <div class="flex justify-between items-center mb-6">
-          <h3 class="card-title">Status</h3>
-          <div class="bg-red-500/20 p-3 rounded-xl">🚨</div>
-        </div>
-        <p id="statusTextLive" role="status" aria-live="polite" aria-atomic="true" class="text-base text-slate-200 leading-relaxed">Waiting for an SOS request...</p>
-        <button id="cancelEmergencyButton" type="button" class="btn-secondary hidden mt-4 px-4 py-3 rounded-xl font-semibold transition-colors">
-          Cancel Emergency
-        </button>
-        <button id="searchRespondersButton" type="button" class="btn-primary hidden mt-4 ml-2 px-4 py-3 rounded-xl font-semibold transition-colors">
-          Find Nearby Responders
-        </button>
-        <div id="nearbyResponders" role="status" aria-live="polite" aria-atomic="true" class="mt-4 space-y-2"></div>
-      </div>
-
-      <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
-        <div class="flex justify-between items-center mb-6">
-          <h3 class="card-title">Location</h3>
-          <div class="bg-blue-500/20 p-3 rounded-xl">📍</div>
-        </div>
-        <p class="text-slate-300 leading-8">The app records your current coordinates only after the user grants geolocation access and the request is authenticated.</p>
-      </div>
-
-      <div class="bg-slate-900/70 rounded-2xl p-6 border border-slate-800">
-        <div class="flex justify-between items-center mb-6">
-          <h3 class="card-title">Current Scope</h3>
-          <div class="bg-amber-500/20 p-3 rounded-xl">🛡️</div>
-        </div>
-        <p class="text-slate-300 leading-8">This page initiates an authenticated SOS event and validates the request payload; it does not simulate ambulance or hospital dispatch.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<section class="px-6 md:px-16 py-16">
-  <div class="text-center mb-14">
-    <h2 class="section-title mb-4">Current Safety Flow</h2>
-    <p class="helper-copy max-w-2xl mx-auto">The app validates the user session, accepts a valid location, and records the secure SOS request for this release.</p>
+    <p id="connectionStatus" role="status" aria-live="polite" aria-atomic="true" class="helper-copy">Checking connection…</p>
   </div>
 
-  <div class="grid md:grid-cols-3 gap-8">
-    <div class="glass rounded-3xl p-8 text-center">
-      <div class="text-5xl mb-5">🔐</div>
-      <h3 class="card-title mb-3">Authenticate</h3>
-      <p class="text-slate-300">The request must come from a signed-in citizen session.</p>
+  <% if (userRole === 'citizen') { %>
+    <%- include('partials/emergency-workflow', { userId, dashboard: false }) %>
+  <% } else { %>
+    <div class="glass p-5 sm:p-8">
+      <h2 class="section-title mb-3">Responder account</h2>
+      <p class="body-copy mb-4">Emergency requests are sent from citizen accounts. View emergencies seeking help in your dashboard.</p>
+      <a href="/dashboard" class="btn-primary emergency-action inline-flex">Open dashboard</a>
     </div>
+  <% } %>
+</main>
 
-    <div class="glass rounded-3xl p-8 text-center">
-      <div class="text-5xl mb-5">📍</div>
-      <h3 class="card-title mb-3">Validate Location</h3>
-      <p class="text-slate-300">Latitude and longitude are checked before the SOS request is accepted.</p>
-    </div>
-
-    <div class="glass rounded-3xl p-8 text-center">
-      <div class="text-5xl mb-5">📝</div>
-      <h3 class="card-title mb-3">Record Request</h3>
-      <p class="text-slate-300">The current backend records the emergency request without claiming downstream dispatch actions.</p>
-    </div>
-  </div>
-</section>
-
-<!-- FOOTER -->
-<footer class="px-6 md:px-16 py-10 border-t border-slate-800 text-center text-slate-300 text-sm">
-  Built for Hackathon Theme — Chain Reaction ⚡
-</footer>
-<script src="/app.js"></script>
-<!-- FIXED EMERGENCY PAGE SCRIPT -->
-
+<script src="/app.js?v=5.2"></script>
+<script src="/emergency-workflow.js?v=5.2"></script>
 <script>
 let map;
 let currentLat;
@@ -147,281 +32,58 @@ let currentLng;
 let currentAccuracy;
 let currentEmergencyId;
 const socket = EC.initializeSocket();
-
-let helperMarkers = []; // ✅ FIX: store markers
-
-// INIT
-window.addEventListener("load", () => {
-  if (!navigator.geolocation) {
-    const statusEl = document.getElementById("statusTextLive");
-    if (statusEl) {
-      statusEl.textContent = "Geolocation is not supported in this browser.";
-    }
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(async (position) => {
-    currentLat = position.coords.latitude;
-    currentLng = position.coords.longitude;
-    currentAccuracy = position.coords.accuracy;
-
-    const statusEl = document.getElementById("statusTextLive");
-    if (statusEl) {
-      statusEl.textContent = "Location captured. The authenticated SOS request can now be submitted.";
-    }
-
-    try {
-      await fetch("/update-location", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ latitude: currentLat, longitude: currentLng }),
-      });
-    } catch (error) {
-      console.error("Location update failed:", error);
-    }
-  }, (error) => {
-    const statusEl = document.getElementById("statusTextLive");
-    if (statusEl) {
-      statusEl.textContent = "Location access is required to create a valid SOS request.";
-    }
-    console.error("Geolocation error:", error);
-  });
+const emergencyWorkflow = EC.createEmergencyWorkflow({
+  socket,
+  requestLocation: requestSosLocation,
+  onEmergencyId(id) { currentEmergencyId = id; },
 });
+emergencyWorkflow?.initialize();
 
-async function createEmergency(emergencyType, description) {
-  const topStatusEl = document.getElementById("statusTextTop");
-  const statusEl = document.getElementById("statusTextLive");
-
-  if (!Number.isFinite(currentLat) || !Number.isFinite(currentLng)) {
-    if (statusEl) {
-      statusEl.textContent = "Location access is required to create a valid SOS request.";
-    }
+async function requestSosLocation() {
+  if (!emergencyWorkflow) return;
+  emergencyWorkflow.setLocationPending();
+  try {
+    const location = await EC.locationTracker.getCurrentLocation();
+    currentLat = location.latitude;
+    currentLng = location.longitude;
+    currentAccuracy = location.accuracy;
+    emergencyWorkflow.setLocation(location);
+  } catch (error) {
+    emergencyWorkflow.setLocationUnavailable(error);
     return;
   }
 
   try {
-    const result = await EC.createCanonicalEmergency({
-      emergencyType,
-      description,
-      latitude: currentLat,
-      longitude: currentLng,
-      accuracy: currentAccuracy,
-      onStatus(status) {
-        if (status === "queued") {
-          if (topStatusEl) topStatusEl.textContent = "Queued offline — not yet sent to the server.";
-          if (statusEl) statusEl.textContent = "Queued offline — not yet sent to the server.";
-        } else if (status === "syncing") {
-          if (statusEl) statusEl.textContent = "Sending emergency...";
-        } else if (status === "auth-required") {
-          if (statusEl) statusEl.textContent = "Login required to send queued emergency";
-        } else if (status === "failed") {
-          if (statusEl) statusEl.textContent = "Emergency could not be sent";
-        }
-      },
+    const response = await fetch("/update-location", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ latitude: currentLat, longitude: currentLng }),
     });
-
-    if (result.state === "synced") {
-      const data = result.data;
-      if (topStatusEl) topStatusEl.textContent = "Emergency created";
-      currentEmergencyId = data.emergency.id;
-      document.getElementById("cancelEmergencyButton").classList.remove("hidden");
-      document.getElementById("searchRespondersButton").classList.remove("hidden");
-      if (statusEl) statusEl.textContent = `Status: ${data.emergency.status}`;
-    }
+    if (!response.ok) throw new Error("Account location update failed");
   } catch (error) {
-    console.error("Emergency creation failed:", error);
-    if (statusEl) {
-      statusEl.textContent = "Emergency could not be sent";
-    }
+    emergencyWorkflow.setLocationNote("Location captured. Your account location could not be updated; an SOS will still include these coordinates.");
   }
 }
 
-function handleEmergencyUpdated(data) {
-  if (data.emergencyId !== currentEmergencyId) {
-    return;
-  }
-
-  const topStatusEl = document.getElementById("statusTextTop");
-  const statusEl = document.getElementById("statusTextLive");
-  if (topStatusEl) {
-    topStatusEl.textContent = `Emergency ${data.status.toLowerCase().replaceAll("_", " ")}`;
-  }
-  if (statusEl) {
-    statusEl.textContent = `Status: ${data.status}`;
-  }
-  if (["CANCELLED", "RESOLVED"].includes(data.status)) {
-    document.getElementById("cancelEmergencyButton").classList.add("hidden");
-    document.getElementById("searchRespondersButton").classList.add("hidden");
-  }
+function updateConnectionStatus() {
+  document.getElementById("connectionStatus").textContent = navigator.onLine === false
+    ? "Offline — requests will be queued"
+    : socket?.connected
+      ? "Connected — live updates available"
+      : "Live updates disconnected — refresh status to check";
 }
+window.addEventListener("online", updateConnectionStatus);
+window.addEventListener("offline", updateConnectionStatus);
+socket?.on("connect", updateConnectionStatus);
+socket?.on("disconnect", updateConnectionStatus);
+socket?.on("connect_error", updateConnectionStatus);
+updateConnectionStatus();
 
-if (socket) {
-  EC.registerEmergencyUpdateListener(socket, handleEmergencyUpdated);
+if (document.readyState === "complete") {
+  requestSosLocation();
+} else {
+  window.addEventListener("load", requestSosLocation, { once: true });
 }
-
-async function refreshCanonicalEmergencyState() {
-  if (!currentEmergencyId) return;
-
-  try {
-    const response = await fetch(`/emergency/${currentEmergencyId}/history`, {
-      headers: { Accept: "application/json" },
-    });
-    if (!response.ok) return;
-    const data = await response.json();
-    const latest = data.history?.at(-1);
-    if (latest) {
-      handleEmergencyUpdated({
-        emergencyId: currentEmergencyId,
-        status: latest.toStatus,
-      });
-    }
-  } catch (error) {
-    console.warn("Emergency state refresh failed:", error);
-  }
-}
-
-window.addEventListener("app-socket-connected", refreshCanonicalEmergencyState);
-
-async function cancelEmergency() {
-  const topStatusEl = document.getElementById("statusTextTop");
-  const statusEl = document.getElementById("statusTextLive");
-
-  if (!currentEmergencyId) {
-    return;
-  }
-
-  try {
-    const response = await fetch(`/emergency/${currentEmergencyId}/status`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify({ status: "CANCELLED" }),
-    });
-    const data = await response.json();
-
-    if (!response.ok) {
-      if (statusEl) {
-        statusEl.textContent = data.error || "Unable to cancel the emergency.";
-      }
-      return;
-    }
-
-    if (topStatusEl) {
-      topStatusEl.textContent = "Emergency cancelled";
-    }
-    if (statusEl) {
-      statusEl.textContent = `Status: ${data.emergency.status}`;
-    }
-    document.getElementById("cancelEmergencyButton").classList.add("hidden");
-    document.getElementById("searchRespondersButton").classList.add("hidden");
-    document.getElementById("nearbyResponders").replaceChildren();
-  } catch (error) {
-    console.error("Emergency cancellation failed:", error);
-    if (statusEl) {
-      statusEl.textContent = "Unable to cancel the emergency.";
-    }
-  }
-}
-
-function formatResponderRole(role) {
-  return role
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-async function searchNearbyResponders() {
-  const statusEl = document.getElementById("statusTextLive");
-  const respondersEl = document.getElementById("nearbyResponders");
-
-  if (!currentEmergencyId) {
-    return;
-  }
-
-  try {
-    const transitionResponse = await fetch(
-      `/emergency/${currentEmergencyId}/status`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-        },
-        body: JSON.stringify({ status: "SEARCHING_FOR_HELP" }),
-      },
-    );
-    const transition = await transitionResponse.json();
-
-    if (!transitionResponse.ok) {
-      if (statusEl) {
-        statusEl.textContent = transition.error || "Unable to search for help.";
-      }
-      return;
-    }
-
-    if (statusEl) {
-      statusEl.textContent = `Status: ${transition.emergency.status}`;
-    }
-
-    const response = await fetch(
-      `/api/emergency/${currentEmergencyId}/nearby-responders`,
-      { headers: { Accept: "application/json" } },
-    );
-    const data = await response.json();
-
-    if (!response.ok) {
-      if (statusEl) {
-        statusEl.textContent = data.error || "Unable to find nearby responders.";
-      }
-      return;
-    }
-
-    respondersEl.replaceChildren();
-    if (!data.responders.length) {
-      respondersEl.textContent =
-        "No nearby responders are currently available.";
-      return;
-    }
-
-    data.responders.forEach((responder) => {
-      const item = document.createElement("div");
-      item.className = "bg-slate-800 rounded-xl p-3 text-slate-200";
-      item.textContent = `${formatResponderRole(responder.role)} - ${responder.distanceKm} km`;
-      respondersEl.appendChild(item);
-    });
-  } catch (error) {
-    console.error("Nearby responder lookup failed:", error);
-    if (statusEl) {
-      statusEl.textContent = "Unable to find nearby responders.";
-    }
-  }
-}
-
-async function level1() {
-  await createEmergency("GENERAL", "Emergency - Level 1");
-}
-
-async function level2() {
-  const reason = document.getElementById("reason").value;
-  const message = document.getElementById("msg").value;
-  await createEmergency("SAFETY", `${reason}${message ? `: ${message}` : ""}`);
-}
-
-async function level3() {
-  await createEmergency("CRITICAL", "Critical emergency");
-}
-
-document.getElementById("level1Button").addEventListener("click", level1);
-document.getElementById("level2Button").addEventListener("click", level2);
-document.getElementById("level3Button").addEventListener("click", level3);
-document
-  .getElementById("cancelEmergencyButton")
-  .addEventListener("click", cancelEmergency);
-document
-  .getElementById("searchRespondersButton")
-  .addEventListener("click", searchNearbyResponders);
 </script>
 </body>
 </html>

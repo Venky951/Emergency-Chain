@@ -470,7 +470,8 @@ async function syncCanonicalEmergency(requestId) {
     } catch {
       data = {};
     }
-    return handleCanonicalSyncResponse(record, response, data);
+    // Await so server-response failures reach the existing retry/backoff handler.
+    return await handleCanonicalSyncResponse(record, response, data);
   } catch (error) {
     const retryCount = record.retryCount || 1;
     const shouldRetry = retryCount < CANONICAL_MAX_RETRIES;
@@ -526,6 +527,7 @@ async function createCanonicalEmergency({
   longitude,
   accuracy,
   onStatus,
+  onRequestId,
 }) {
   const requestId = generateCanonicalRequestId();
   const payload = {
@@ -540,6 +542,8 @@ async function createCanonicalEmergency({
   };
 
   await offlineDB.saveCanonicalEmergency(payload);
+  // Let the workflow retain this queue identity for reload recovery.
+  onRequestId?.(requestId);
   const reportStatus = (status) => onStatus?.(status);
 
   if (navigator.onLine === false) {

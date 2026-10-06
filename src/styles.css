@@ -86,6 +86,100 @@ textarea:focus-visible {
   border-color: #f87171;
 }
 
+/* One citizen workflow for the dashboard and the SOS page. */
+#emergencyWorkflow {
+  max-width: 64rem;
+  margin-inline: auto;
+  overflow-wrap: anywhere;
+}
+
+.emergency-status-card {
+  @apply mb-6 rounded-2xl border border-slate-600 bg-slate-900 p-4 sm:p-6;
+}
+
+.emergency-feedback {
+  @apply mt-3 text-base leading-relaxed text-slate-200;
+}
+
+.emergency-feedback:empty {
+  display: none;
+}
+
+.emergency-action {
+  @apply min-h-[3rem] rounded-xl px-4 py-3 text-base font-semibold leading-normal transition-colors;
+  max-width: 100%;
+  white-space: normal;
+}
+
+.emergency-primary-option {
+  @apply rounded-2xl border border-red-400/50 bg-red-950/30 p-4 sm:p-5;
+}
+
+.emergency-send-primary {
+  @apply min-h-[3.5rem] w-full text-lg;
+}
+
+.emergency-secondary-option {
+  @apply rounded-2xl border border-slate-700 bg-slate-900/60 p-4 sm:p-5;
+}
+
+.emergency-secondary-option summary {
+  @apply cursor-pointer py-2;
+  min-height: 2.75rem;
+}
+
+.emergency-secondary-option summary:focus-visible {
+  outline: 3px solid #fca5a5;
+  outline-offset: 3px;
+  border-radius: 0.25rem;
+}
+
+.emergency-progress {
+  @apply space-y-2;
+}
+
+.emergency-step {
+  @apply flex items-start gap-3 rounded-xl border border-transparent p-3 text-sm leading-relaxed text-slate-300;
+}
+
+.emergency-step.hidden {
+  display: none;
+}
+
+.emergency-step-marker {
+  @apply flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-slate-600 font-semibold;
+}
+
+.emergency-step[data-step-state="recorded"] {
+  @apply text-slate-100;
+}
+
+.emergency-step[data-step-state="recorded"] .emergency-step-marker {
+  @apply border-slate-400 bg-slate-700;
+}
+
+.emergency-step[data-step-state="current"] {
+  @apply border-blue-400/50 bg-blue-950/40 text-white;
+}
+
+.emergency-step[data-step-state="current"] .emergency-step-marker {
+  @apply border-blue-300 bg-blue-900;
+}
+
+.emergency-cancelled-step[data-step-state="current"] {
+  @apply border-amber-400/50 bg-amber-950/40;
+}
+
+.emergency-cancelled-step[data-step-state="current"] .emergency-step-marker {
+  @apply border-amber-300 bg-amber-900;
+}
+
+@media (max-width: 639px) {
+  .emergency-status-card .emergency-action {
+    width: 100%;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

@@ -1,0 +1,89 @@
+<div id="emergencyWorkflow" data-user-id="<%= userId %>" class="glass p-5 sm:p-8">
+  <h2 class="section-title mb-4">Emergency SOS</h2>
+
+  <div class="emergency-status-card" aria-labelledby="statusTextTop">
+    <p class="helper-copy mb-1">Your emergency status</p>
+    <h3 id="statusTextTop" tabindex="-1" role="status" aria-live="polite" aria-atomic="true" class="section-title">Checking for an existing request…</h3>
+    <p id="statusTextLive" role="status" aria-live="polite" aria-atomic="true" class="body-copy mt-2">Server-confirmed updates appear here.</p>
+    <p id="emergencyFeedback" role="status" aria-live="polite" aria-atomic="true" class="emergency-feedback"></p>
+    <a id="emergencyLoginLink" href="/login" class="hidden inline-block mt-3 text-red-300 underline">Log in to send your queued request</a>
+
+    <div class="flex flex-wrap gap-3 mt-4">
+      <button id="searchRespondersButton" type="button" class="btn-primary hidden emergency-action">Find Nearby Responders</button>
+      <button id="resolveEmergencyButton" type="button" class="btn-success hidden emergency-action">Mark resolved</button>
+      <button id="refreshEmergencyButton" type="button" class="btn-secondary hidden emergency-action">Refresh status</button>
+    </div>
+    <div id="nearbyResponders" role="status" aria-live="polite" aria-atomic="true" class="space-y-2 mt-3"></div>
+
+    <div id="emergencyProgress" class="hidden mt-5">
+      <h4 class="card-title mb-3">Emergency progress</h4>
+      <ol class="emergency-progress" aria-label="Server-confirmed emergency progress">
+        <% const steps = [
+          ['TRIGGERED', 'Emergency sent'],
+          ['SEARCHING_FOR_HELP', 'Searching for help'],
+          ['RESPONDER_ASSIGNED', 'Responder assigned'],
+          ['RESPONDER_ON_WAY', 'Responder on the way'],
+          ['HELP_REACHED', 'Help reached'],
+          ['RESOLVED', 'Resolved']
+        ]; %>
+        <% steps.forEach(([status, label], index) => { %>
+          <li data-emergency-step="<%= status %>" data-step-state="pending" class="emergency-step">
+            <span class="emergency-step-marker" aria-hidden="true"><%= index + 1 %></span>
+            <span><span class="font-medium"><%= label %></span> <span data-step-label class="helper-copy">— Not recorded</span></span>
+          </li>
+        <% }); %>
+        <li data-emergency-step="CANCELLED" data-step-state="pending" class="emergency-step emergency-cancelled-step hidden">
+          <span class="emergency-step-marker" aria-hidden="true">×</span>
+          <span><span class="font-medium">Cancelled</span> <span data-step-label class="helper-copy">— Emergency ended</span></span>
+        </li>
+      </ol>
+    </div>
+    <div class="mt-4">
+      <button id="cancelEmergencyButton" type="button" class="btn-danger hidden emergency-action">Cancel Emergency</button>
+    </div>
+  </div>
+
+  <div class="mb-5" aria-labelledby="sosLocationHeading">
+    <h3 id="sosLocationHeading" class="card-title">Location for your SOS</h3>
+    <p class="helper-copy mt-1">
+      Location is required for SOS and nearby responder search.
+      <% if (dashboard) { %>
+        This dashboard requests location when it opens and sends updates to your account while open. An SOS includes your current coordinates.
+      <% } else { %>
+        This page requests location when it opens and updates your account location when captured. An SOS includes those coordinates.
+      <% } %>
+    </p>
+    <p id="sosLocationStatus" role="status" aria-live="polite" aria-atomic="true" class="helper-copy mt-2">Requesting location permission…</p>
+    <button id="retryLocationButton" type="button" disabled class="btn-secondary emergency-action mt-3">Retry location</button>
+  </div>
+
+  <div id="emergencyCreationControls" aria-busy="true" class="space-y-3">
+    <div class="emergency-primary-option">
+      <h3 class="card-title">Level 3 · Critical emergency</h3>
+      <p id="criticalSosHint" class="helper-copy mt-1 mb-4">Starts a critical SOS immediately.</p>
+      <button id="level3Button" data-sos-level="3" type="button" disabled aria-describedby="criticalSosHint" class="btn-danger emergency-action emergency-send-primary">Send critical SOS</button>
+    </div>
+    <div class="emergency-secondary-option">
+      <h3 class="card-title">Level 1 · General emergency</h3>
+      <p id="generalSosHint" class="helper-copy mt-1 mb-3">Starts a general emergency request.</p>
+      <button id="level1Button" data-sos-level="1" type="button" disabled aria-describedby="generalSosHint" class="btn-secondary emergency-action w-full">Send general SOS</button>
+    </div>
+    <details id="safetySosDetails" class="emergency-secondary-option">
+      <summary class="font-semibold">Level 2 · Safety concern — add details</summary>
+      <p class="helper-copy mt-2">Choose a reason, then send your safety SOS.</p>
+      <label for="reason" class="block mt-3 mb-2 text-slate-200 font-medium">Reason</label>
+      <select id="reason" class="form-control" disabled>
+        <option>Vehicle broke down</option>
+        <option>Someone chasing me</option>
+        <option>Medical emergency</option>
+        <option>Feeling unsafe</option>
+        <option>Accident nearby</option>
+      </select>
+      <label for="msg" class="block mt-3 mb-2 text-slate-200 font-medium">Additional details (optional)</label>
+      <textarea id="msg" maxlength="500" class="form-control min-h-[6rem]" placeholder="Details that may help responders" disabled></textarea>
+      <button id="level2Button" data-sos-level="2" type="button" disabled class="btn-warning emergency-action w-full mt-3">Send safety SOS</button>
+    </details>
+    <p id="emergencyControlsHint" class="helper-copy">Checking request status before enabling SOS.</p>
+  </div>
+  <noscript><p class="helper-copy mt-4">JavaScript is required to send an SOS and receive emergency updates.</p></noscript>
+</div>

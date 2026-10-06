@@ -12,66 +12,19 @@
       <p class="text-slate-300">Welcome, <span id="userName" class="font-semibold text-red-300"><%= user.name %></span></p>
     </div>
     <div class="flex gap-2">
-      <div id="connectionStatus" role="status" aria-live="polite" aria-atomic="true" class="flex items-center gap-2 px-4 py-2 rounded-full bg-green-500/20 text-green-300">
-        <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-        Connected
+      <div id="connectionStatus" role="status" aria-live="polite" aria-atomic="true" class="flex items-center gap-2 px-4 py-2 rounded-full bg-slate-800 text-slate-200 text-sm">
+        Checking connection…
       </div>
     </div>
   </div>
 </section>
 
-<!-- SOS BUTTONS SECTION -->
-<section class="px-6 md:px-16 py-10">
-  <div class="grid md:grid-cols-3 gap-6">
-
-    <!-- LEVEL 1: EMERGENCY CONTACTS -->
-    <div class="glass rounded-3xl p-6 md:p-8 text-center">
-      <div class="text-6xl mb-4">🚨</div>
-      <h2 class="card-title mb-2">Level 1: Emergency</h2>
-      <p class="body-copy mb-4">
-        Alert emergency contacts
-      </p>
-      <div class="text-sm text-slate-300 mb-6">
-        ⏱️ 10 min expiry
-      </div>
-      <button data-sos-level="1" class="btn-primary w-full py-3 rounded-xl font-bold transition-colors">
-        Trigger Level 1
-      </button>
-    </div>
-
-    <!-- LEVEL 2: NEARBY HELPERS -->
-    <div class="glass rounded-3xl p-6 md:p-8 text-center">
-      <div class="text-6xl mb-4">🔔</div>
-      <h2 class="card-title mb-2">Level 2: Nearby</h2>
-      <p class="body-copy mb-4">
-        Alert helpers within 500m
-      </p>
-      <div class="text-sm text-slate-300 mb-6">
-        ⏱️ 20 min expiry
-      </div>
-      <button data-sos-level="2" class="btn-warning w-full py-3 rounded-xl font-bold transition-colors">
-        Trigger Level 2
-      </button>
-    </div>
-
-    <!-- LEVEL 3: CRITICAL -->
-    <div class="glass rounded-3xl p-6 md:p-8 text-center">
-      <div class="text-6xl mb-4">🆘</div>
-      <h2 class="card-title mb-2">Level 3: Critical</h2>
-      <p class="body-copy mb-4">
-        Alert all nearby users
-      </p>
-      <div class="text-sm text-slate-300 mb-6">
-        ⏱️ 30 min expiry
-      </div>
-      <button data-sos-level="3" class="btn-danger w-full py-3 rounded-xl font-bold transition-colors">
-        Trigger Level 3
-      </button>
-    </div>
-
-  </div>
+<!-- SHARED CITIZEN EMERGENCY WORKFLOW -->
+<% if (user.role === 'citizen') { %>
+<section class="px-4 sm:px-6 md:px-16 py-6 sm:py-10">
+  <%- include('partials/emergency-workflow', { userId, dashboard: true }) %>
 </section>
-
+<% } %>
 <!-- MAP & STATUS -->
 <section class="px-6 md:px-16 py-10">
   <div class="grid md:grid-cols-3 gap-6">
@@ -81,7 +34,7 @@
       <h2 class="section-title mb-4">📍 Your Location</h2>
       <div id="map" role="region" aria-label="Map showing your location, nearby helpers, and emergency alerts" class="w-full h-96 rounded-2xl overflow-hidden border border-slate-700 bg-slate-900"></div>
       <p class="text-sm text-slate-300 mt-4">
-        Location updated every 10 seconds • <span id="locationStatus" role="status" aria-live="polite" aria-atomic="true" class="text-green-300">Tracking</span>
+        <span id="locationStatus" role="status" aria-live="polite" aria-atomic="true">Requesting location permission…</span>
       </p>
     </div>
 
@@ -169,7 +122,8 @@
 <% } %>
 
 <!-- SCRIPTS -->
-<script src="/app.js"></script>
+<script src="/app.js?v=5.2"></script>
+<script src="/emergency-workflow.js?v=5.2"></script>
 
 <script>
 /**
@@ -184,58 +138,74 @@ let currentLat;
 let currentLng;
 const isResponder = <%= JSON.stringify(["volunteer", "ambulance_driver", "hospital_staff"].includes(user.role)) %>;
 let currentEmergencyId;
+let locationTrackingStarted = false;
 
 // ========================================
 // 1. MAP INITIALIZATION
 // ========================================
 
 async function initializeDashboardMap() {
+  emergencyWorkflow?.setLocationPending();
+  document.getElementById("locationStatus").textContent = "Requesting location permission…";
   try {
     const defaultCenter = [20.5937, 78.9629];
 
-    map = L.map("map", {
-      center: defaultCenter,
-      zoom: 5,
-      dragging: !L.Browser.mobile,
-      tap: !L.Browser.mobile,
-    });
+    if (!map) {
+      map = L.map("map", {
+        center: defaultCenter,
+        zoom: 5,
+        dragging: !L.Browser.mobile,
+        tap: !L.Browser.mobile,
+      });
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      attribution:
-        '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(map);
+      L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution:
+          '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
 
-    helpersLayerGroup = L.layerGroup().addTo(map);
-    alertsLayerGroup = L.layerGroup().addTo(map);
+      helpersLayerGroup = L.layerGroup().addTo(map);
+      alertsLayerGroup = L.layerGroup().addTo(map);
+    }
 
     // Request exact location only inside the authenticated dashboard.
     const location = await EC.locationTracker.getCurrentLocation();
     currentLat = location.latitude;
     currentLng = location.longitude;
+    emergencyWorkflow?.setLocation(location);
+    document.getElementById("locationStatus").textContent = "Location captured — updates requested every 10 seconds.";
 
-    console.log("[Dashboard] User location:", currentLat, currentLng);
-
-    userMarker = L.marker([currentLat, currentLng])
-      .addTo(map)
-      .bindPopup("📍 Your Location");
+    if (userMarker) {
+      userMarker.setLatLng([currentLat, currentLng]);
+    } else {
+      userMarker = L.marker([currentLat, currentLng])
+        .addTo(map)
+        .bindPopup("📍 Your Location");
+    }
     map.setView([currentLat, currentLng], 15);
 
     console.log("[Dashboard] Map initialized");
 
     // Update user location on server
-    await fetch("/update-location", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ latitude: currentLat, longitude: currentLng }),
-    });
+    try {
+      const response = await fetch("/update-location", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ latitude: currentLat, longitude: currentLng }),
+      });
+      if (!response.ok) throw new Error("Account location update failed");
+    } catch (error) {
+      emergencyWorkflow?.setLocationNote("Location captured. Your account location could not be updated; an SOS will still include these coordinates.");
+      document.getElementById("locationStatus").textContent = "Location captured — account update unavailable.";
+    }
 
     return true;
 
   } catch (err) {
     console.warn("[Dashboard] Location unavailable:", err.message);
+    emergencyWorkflow?.setLocationUnavailable(err);
     document.getElementById("locationStatus").textContent =
-      "Location permission is required for location-dependent features.";
+      "Location unavailable. Allow location access and retry to use SOS and nearby features.";
     return false;
   }
 }
@@ -245,6 +215,8 @@ async function initializeDashboardMap() {
 // ========================================
 
 async function startLocationTracking() {
+  if (locationTrackingStarted) return;
+  locationTrackingStarted = true;
   try {
     // Request notification permission
     await EC.requestNotificationPermission();
@@ -258,6 +230,8 @@ async function startLocationTracking() {
         const location = await EC.locationTracker.getCurrentLocation();
         currentLat = location.latitude;
         currentLng = location.longitude;
+        emergencyWorkflow?.setLocation(location);
+        document.getElementById("locationStatus").textContent = "Location captured — updates requested every 10 seconds.";
 
         // Update marker
         if (userMarker) {
@@ -268,12 +242,15 @@ async function startLocationTracking() {
         await loadNearbyHelpers();
         await loadNearbyAlerts();
       } catch (err) {
+        emergencyWorkflow?.setLocationUnavailable(err);
+        document.getElementById("locationStatus").textContent = "Location update unavailable. Allow location access and retry.";
         console.error("[Dashboard] Location update error:", err);
       }
     }, 10000);
 
     console.log("[Dashboard] Location tracking started");
   } catch (err) {
+    locationTrackingStarted = false;
     console.error("[Dashboard] Tracking error:", err);
   }
 }
@@ -507,55 +484,6 @@ async function acceptEmergency(emergencyId, button, statusElement) {
 }
 
 // ========================================
-// 5. SOS TRIGGER
-// ========================================
-
-async function triggerSOS(level) {
-  try {
-    if (!currentLat || !currentLng) {
-      alert("Getting your location...");
-      return;
-    }
-
-    const emergencyTypes = {
-      1: "GENERAL",
-      2: "SAFETY",
-      3: "CRITICAL",
-    };
-
-    const result = await EC.createCanonicalEmergency({
-      emergencyType: emergencyTypes[level],
-      description: `Emergency - Level ${level}`,
-      latitude: currentLat,
-      longitude: currentLng,
-      onStatus(status) {
-        if (status === "queued") {
-          alert("Queued offline — not yet sent to the server.");
-        } else if (status === "auth-required") {
-          alert("Login required to send queued emergency");
-        } else if (status === "failed") {
-          alert("Emergency could not be sent");
-        }
-      },
-    });
-
-    if (result.state === "synced") {
-      const data = result.data;
-      alert(`${data.message}\nStatus: ${data.emergency.status}`);
-      currentEmergencyId = data.emergency.id;
-    }
-
-  } catch (err) {
-    console.error("[Dashboard] SOS error:", err);
-    alert("Unable to create the emergency request.");
-  }
-}
-
-document.querySelectorAll("[data-sos-level]").forEach((button) => {
-  button.addEventListener("click", () => triggerSOS(button.dataset.sosLevel));
-});
-
-// ========================================
 // 6. ACCEPT ALERT
 // ========================================
 
@@ -572,7 +500,7 @@ async function acceptAlert(alertId) {
       return;
     }
 
-    alert("✅ You have accepted this alert! Help is on the way.");
+    alert("Alert accepted.");
     await loadNearbyAlerts();
   } catch (err) {
     console.error("[Dashboard] Accept error:", err);
@@ -584,36 +512,17 @@ async function acceptAlert(alertId) {
 // ========================================
 
 const socket = EC.initializeSocket();
+const emergencyWorkflow = EC.createEmergencyWorkflow({
+  socket,
+  requestLocation: requestDashboardLocation,
+  onEmergencyId(id) { currentEmergencyId = id; },
+});
+emergencyWorkflow?.initialize();
 
 if (socket) {
-  const refreshCurrentEmergency = async () => {
-    if (!currentEmergencyId) return;
-    try {
-      const response = await fetch(`/emergency/${currentEmergencyId}/history`, {
-        headers: { Accept: "application/json" },
-      });
-      if (!response.ok) return;
-      const data = await response.json();
-      const latest = data.history?.at(-1);
-      if (latest) {
-        console.log("[Socket] Recovered emergency status:", latest.toStatus);
-      }
-    } catch (error) {
-      console.warn("[Dashboard] Emergency recovery failed:", error);
-    }
-  };
-
-  const handleEmergencyUpdated = (data) => {
-    if (data.emergencyId === currentEmergencyId) {
-      console.log("[Socket] Emergency updated:", data.status);
-    }
-    if (isResponder) {
-      loadSearchingEmergencies();
-    }
-  };
-
-  EC.registerEmergencyUpdateListener(socket, handleEmergencyUpdated);
-  window.addEventListener("app-socket-connected", refreshCurrentEmergency);
+  if (isResponder) {
+    EC.registerEmergencyUpdateListener(socket, loadSearchingEmergencies);
+  }
 
   socket.on("sos-level-1", (data) => {
     console.log("[Socket] Level 1 SOS received");
@@ -642,47 +551,42 @@ if (socket) {
 // 8. CONNECTION STATUS
 // ========================================
 
-window.addEventListener("online", () => {
-  document.getElementById("connectionStatus").innerHTML = `
-    <div class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></div>
-    Connected
-  `;
-  document.getElementById("connectionStatus").classList.remove("bg-red-500/20", "text-red-400");
-  document.getElementById("connectionStatus").classList.add("bg-green-500/20", "text-green-400");
-});
-
-window.addEventListener("offline", () => {
-  document.getElementById("connectionStatus").innerHTML = `
-    <div class="w-2 h-2 rounded-full bg-red-400"></div>
-    Offline
-  `;
-  document.getElementById("connectionStatus").classList.remove("bg-green-500/20", "text-green-400");
-  document.getElementById("connectionStatus").classList.add("bg-red-500/20", "text-red-400");
-});
+function updateConnectionStatus() {
+  document.getElementById("connectionStatus").textContent = navigator.onLine === false
+    ? "Offline — requests will be queued"
+    : socket?.connected
+      ? "Connected — live updates available"
+      : "Live updates disconnected — refresh status to check";
+}
+window.addEventListener("online", updateConnectionStatus);
+window.addEventListener("offline", updateConnectionStatus);
+socket?.on("connect", updateConnectionStatus);
+socket?.on("disconnect", updateConnectionStatus);
+socket?.on("connect_error", updateConnectionStatus);
+updateConnectionStatus();
 
 // ========================================
 // 9. INITIALIZATION
 // ========================================
 
-// Initialize when page loads
+async function requestDashboardLocation() {
+  const locationReady = await initializeDashboardMap();
+  if (!locationReady) return;
+  await startLocationTracking();
+  await loadNearbyHelpers();
+  await loadNearbyAlerts();
+}
+
+function initializeDashboard() {
+  loadSearchingEmergencies();
+  requestDashboardLocation();
+}
+
+// Initialize when page loads, with the same location request available for retry.
 if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", async () => {
-    loadSearchingEmergencies();
-    const locationReady = await initializeDashboardMap();
-    if (!locationReady) return;
-    await startLocationTracking();
-    await loadNearbyHelpers();
-    await loadNearbyAlerts();
-  });
+  document.addEventListener("DOMContentLoaded", initializeDashboard, { once: true });
 } else {
-  (async () => {
-    loadSearchingEmergencies();
-    const locationReady = await initializeDashboardMap();
-    if (!locationReady) return;
-    await startLocationTracking();
-    await loadNearbyHelpers();
-    await loadNearbyAlerts();
-  })();
+  initializeDashboard();
 }
 
 console.log("[Dashboard] Loaded");

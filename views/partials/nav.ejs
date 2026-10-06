@@ -39,7 +39,7 @@
         Dashboard
       </a>
 
-      <form action="/logout" method="POST" class="m-0">
+      <form id="logoutForm" action="/logout" method="POST" class="m-0">
         <button type="submit"
           class="btn-secondary transition-colors px-4 sm:px-6 py-3 rounded-xl font-semibold"
         >
@@ -49,3 +49,17 @@
       </div>
       <% } %>
   </nav>
+  <% if (isLoggedIn) { %>
+  <script>
+    // Drop this tab's recovery identifiers when signing out from any page.
+    document.getElementById("logoutForm").addEventListener("submit", () => {
+      try {
+        Object.keys(sessionStorage)
+          .filter((key) => key.startsWith("emergencychain:workflow:"))
+          .forEach((key) => sessionStorage.removeItem(key));
+      } catch (error) {
+        // Logout still works if browser storage is unavailable.
+      }
+    });
+  </script>
+  <% } %>

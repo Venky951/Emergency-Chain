@@ -191,13 +191,18 @@ test("offline queue and service-worker contracts are present without private con
     path.join(__dirname, "../views/sos.ejs"),
     "utf8",
   );
+  const workflow = fs.readFileSync(
+    path.join(__dirname, "../public/emergency-workflow.js"),
+    "utf8",
+  );
 
   assert.match(publicApp, /canonical-emergencies/);
   assert.match(publicApp, /clientRequestId/);
   assert.match(publicApp, /sync-canonical-emergency/);
   assert.match(publicApp, /auth-required/);
-  assert.match(sosView, /Queued offline — not yet sent to the server\./);
-  assert.match(sosView, /Emergency created/);
+  assert.match(sosView, /include\(['"]partials\/emergency-workflow['"]/);
+  assert.match(workflow, /Queued offline — not yet sent to server/);
+  assert.match(workflow, /Emergency sent/);
   assert.match(serviceWorker, /sync-canonical-emergency/);
   assert.match(serviceWorker, /sync-sos/);
   assert.match(serviceWorker, /sync-location/);
