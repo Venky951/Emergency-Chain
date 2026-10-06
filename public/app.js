@@ -303,6 +303,18 @@ const offlineDB = new OfflineDB();
 
 let canonicalSyncPromise = null;
 const CANONICAL_MAX_RETRIES = 5;
+let socketConnectionState = "disconnected";
+
+function dispatchConnectionState() {
+  window.dispatchEvent(
+    new CustomEvent("app-connection-state", {
+      detail: {
+        network: navigator.onLine === false ? "offline" : "online",
+        socket: socketConnectionState,
+      },
+    }),
+  );
+}
 
 function generateCanonicalRequestId() {
   if (window.crypto?.randomUUID) {
@@ -720,16 +732,25 @@ function initializeSocket() {
 
   socket.on("connect", () => {
     console.log("[Socket] Connected:", socket.id);
+    socketConnectionState = "connected";
     document.body.classList.remove("offline");
     document.body.classList.add("online");
+    dispatchConnectionState();
     refreshCanonicalEmergencyState();
     window.dispatchEvent(new CustomEvent("app-socket-connected"));
   });
 
   socket.on("disconnect", () => {
     console.log("[Socket] Disconnected");
+    socketConnectionState = "disconnected";
     document.body.classList.add("offline");
     document.body.classList.remove("online");
+    dispatchConnectionState();
+  });
+
+  socket.on("connect_error", () => {
+    socketConnectionState = "reconnecting";
+    dispatchConnectionState();
   });
 
   socket.on("sos-level-1", (data) => {
@@ -809,6 +830,7 @@ window.addEventListener("online", async () => {
   console.log("[App] Back online!");
   document.body.classList.remove("offline");
   document.body.classList.add("online");
+  dispatchConnectionState();
 
   // Trigger background sync
   if (
@@ -834,6 +856,7 @@ window.addEventListener("offline", () => {
   console.log("[App] Gone offline!");
   document.body.classList.add("offline");
   document.body.classList.remove("online");
+  dispatchConnectionState();
 
   // Dispatch custom event
   window.dispatchEvent(new CustomEvent("app-offline"));
@@ -860,6 +883,10 @@ window.EC = {
   registerCanonicalEmergencySync,
   showNotification,
   requestNotificationPermission,
+  getConnectionState: () => ({
+    network: navigator.onLine === false ? "offline" : "online",
+    socket: socketConnectionState,
+  }),
 };
 
 console.log("[App] Emergency Chain initialized");

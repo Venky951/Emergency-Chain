@@ -1,10 +1,16 @@
 <div id="emergencyWorkflow" data-user-id="<%= userId %>" class="glass p-5 sm:p-8">
   <h2 class="section-title mb-4">Emergency SOS</h2>
+  <div id="workflowConnectionStatus" class="workflow-connection-status mb-4" role="status" aria-live="polite" aria-atomic="true">
+    <span id="workflowNetworkStatus">Online</span>
+    <span aria-hidden="true"> · </span>
+    <span id="workflowServerStatus">Server disconnected</span>
+  </div>
 
   <div class="emergency-status-card" aria-labelledby="statusTextTop">
     <p class="helper-copy mb-1">Your emergency status</p>
     <h3 id="statusTextTop" tabindex="-1" role="status" aria-live="polite" aria-atomic="true" class="section-title">Checking for an existing request…</h3>
     <p id="statusTextLive" role="status" aria-live="polite" aria-atomic="true" class="body-copy mt-2">Server-confirmed updates appear here.</p>
+    <p id="emergencySyncStatus" data-sync-state="not-applicable" role="status" aria-live="polite" aria-atomic="true" class="helper-copy mt-2">No emergency syncing</p>
     <p id="emergencyFeedback" role="status" aria-live="polite" aria-atomic="true" class="emergency-feedback"></p>
     <a id="emergencyLoginLink" href="/login" class="hidden inline-block mt-3 text-red-300 underline">Log in to send your queued request</a>
 

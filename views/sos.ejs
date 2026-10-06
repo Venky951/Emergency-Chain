@@ -66,11 +66,14 @@ async function requestSosLocation() {
 }
 
 function updateConnectionStatus() {
-  document.getElementById("connectionStatus").textContent = navigator.onLine === false
-    ? "Offline — requests will be queued"
-    : socket?.connected
-      ? "Connected — live updates available"
-      : "Live updates disconnected — refresh status to check";
+  const connection = EC.getConnectionState();
+  document.getElementById("connectionStatus").textContent = connection.network === "offline"
+    ? "Offline"
+    : connection.socket === "connected"
+      ? "Online · Server connected"
+      : connection.socket === "reconnecting"
+        ? "Online · Reconnecting…"
+        : "Online · Server disconnected";
 }
 window.addEventListener("online", updateConnectionStatus);
 window.addEventListener("offline", updateConnectionStatus);

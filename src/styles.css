@@ -45,6 +45,27 @@ body {
   @apply text-sm leading-relaxed text-slate-300;
 }
 
+.workflow-connection-status {
+  display: inline-flex;
+  max-width: 100%;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  color: rgb(203 213 225);
+  font-size: 0.875rem;
+}
+
+.workflow-connection-status[data-network="offline"],
+#emergencySyncStatus[data-sync-state="queued"],
+#emergencySyncStatus[data-sync-state="failed"],
+#emergencySyncStatus[data-sync-state="conflict"],
+#emergencySyncStatus[data-sync-state="auth-required"] {
+  color: rgb(253 186 116);
+}
+
+#emergencySyncStatus[data-sync-state="synced"] {
+  color: rgb(134 239 172);
+}
+
 .form-control {
   @apply w-full rounded-xl border border-slate-600 bg-slate-900 px-4 py-3 text-base text-white placeholder:text-slate-400 transition-colors;
 }

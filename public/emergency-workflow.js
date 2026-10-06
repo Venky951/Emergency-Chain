@@ -41,6 +41,9 @@
     let recoveryPromise = null;
     let initialized = false;
     let storageAvailable = true;
+    let networkState = navigator.onLine === false ? "offline" : "online";
+    let socketState = "disconnected";
+    let syncState = "not-applicable";
 
     function visible(element, show) {
       element.classList.toggle("hidden", !show);
@@ -66,6 +69,36 @@
 
     function feedback(message) {
       setText("emergencyFeedback", message);
+    }
+
+    function renderConnection() {
+      const networkLabel = networkState === "offline" ? "Offline" : "Online";
+      const socketLabel = socketState === "connected"
+        ? "Server connected"
+        : socketState === "reconnecting"
+          ? "Reconnecting…"
+          : "Server disconnected";
+      setText("workflowNetworkStatus", networkLabel);
+      setText("workflowServerStatus", socketLabel);
+      const connection = el("workflowConnectionStatus");
+      connection.dataset.network = networkState;
+      connection.dataset.socket = socketState;
+      connection.setAttribute("aria-label", `${networkLabel}. ${socketLabel}.`);
+    }
+
+    function renderSync() {
+      const labels = {
+        "not-applicable": "No emergency syncing",
+        submitting: "Submitting emergency…",
+        queued: "Queued offline — not yet sent to server",
+        syncing: "Syncing emergency…",
+        synced: "Server confirmed",
+        "auth-required": "Sign in again to send this emergency request.",
+        conflict: "This emergency request could not be synchronized.",
+        failed: "Unable to send this emergency request.",
+      };
+      setText("emergencySyncStatus", labels[syncState] || labels["not-applicable"]);
+      el("emergencySyncStatus").dataset.syncState = syncState;
     }
 
     function focusStatus() {
@@ -112,6 +145,8 @@
       }
       setText("statusTextTop", title);
       setText("statusTextLive", detail);
+      renderConnection();
+      renderSync();
       root.dataset.emergencyStatus = status || "";
       visible(el("emergencyLoginLink"), transport === "auth-required");
       visible(el("searchRespondersButton"), SEARCHABLE.includes(status));
@@ -181,6 +216,9 @@
 
     function handleQueueStatus(detail) {
       if (!requestId || detail?.requestId !== requestId) return;
+      if (["queued", "syncing", "synced", "auth-required", "conflict", "failed"].includes(detail.status)) {
+        syncState = detail.status;
+      }
       if (detail.status === "synced") {
         const applied = applyEmergency(detail.emergency, { source: "creation" });
         if (applied) {
@@ -217,6 +255,7 @@
       if (!type) return;
       // Lock synchronously, before IndexedDB, service worker, or network awaits.
       submitting = true;
+      syncState = "submitting";
       const submission = ++submissionSequence;
       revision += 1;
       if (emergencyId) retiredEmergencyIds.add(emergencyId);
@@ -241,6 +280,7 @@
             // has already saved this request, so offline feedback can be immediate.
             if (navigator.onLine === false) {
               transport = "queued";
+              syncState = "queued";
               // The saved request ID keeps creation locked while worker readiness
               // is pending. Status refresh remains usable in the meantime.
               submitting = false;
@@ -404,6 +444,7 @@
       locationPending = true;
       location = null;
       setText("sosLocationStatus", "Requesting location permission…");
+      el("sosLocationStatus").dataset.locationState = "requesting";
       render();
     }
 
@@ -415,6 +456,7 @@
       location = { latitude: value.latitude, longitude: value.longitude, accuracy: value.accuracy ?? null };
       locationPending = false;
       setText("sosLocationStatus", "Location available. These coordinates will be included when you send SOS.");
+      el("sosLocationStatus").dataset.locationState = "available";
       render();
     }
 
@@ -424,6 +466,7 @@
       setText("sosLocationStatus", error?.code === 1
         ? "Location permission denied. Allow location in your browser settings, then use Retry location."
         : "Location unavailable. Check your device location settings, then use Retry location.");
+      el("sosLocationStatus").dataset.locationState = error?.code === 1 ? "denied" : "unavailable";
       render();
     }
 
@@ -457,6 +500,11 @@
       try { sessionStorage.removeItem(storageKey); } catch { /* Storage unavailable. */ }
     });
     window.addEventListener("canonical-emergency-status", (event) => handleQueueStatus(event.detail));
+    window.addEventListener("app-connection-state", (event) => {
+      networkState = event.detail?.network || networkState;
+      socketState = event.detail?.socket || socketState;
+      render();
+    });
     navigator.serviceWorker?.addEventListener("message", (event) => {
       if (event.data?.type === "canonical-emergency-status") handleQueueStatus(event.data);
     });
@@ -467,6 +515,8 @@
     window.addEventListener("app-online", () => { render(); recover(); });
     window.addEventListener("app-offline", render);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) recover(); });
+    renderConnection();
+    renderSync();
     render();
     return {
       initialize, submit, recover, setLocation, setLocationPending, setLocationUnavailable,
