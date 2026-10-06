@@ -54,6 +54,11 @@ body {
   font-size: 0.875rem;
 }
 
+.emergency-history-item {
+  border-left: 2px solid rgb(100 116 139);
+  padding-left: 0.75rem;
+}
+
 .workflow-connection-status[data-network="offline"],
 #emergencySyncStatus[data-sync-state="queued"],
 #emergencySyncStatus[data-sync-state="failed"],

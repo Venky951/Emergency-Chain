@@ -111,6 +111,10 @@
 <% if (["volunteer", "ambulance_driver", "hospital_staff"].includes(user.role)) { %>
 <section class="px-6 md:px-16 py-10">
   <div class="glass rounded-3xl p-8">
+    <h2 class="section-title mb-3">Assigned emergency</h2>
+    <div id="assignedEmergencyPanel" class="mb-6" aria-live="polite">
+      <p class="helper-copy">No emergency is currently assigned to this responder.</p>
+    </div>
     <h2 class="section-title mb-6">Emergencies Seeking Help</h2>
     <div id="searchingEmergenciesList" class="space-y-4">
       <div class="bg-slate-800 rounded-xl p-4 text-slate-300">
@@ -138,6 +142,8 @@ let currentLat;
 let currentLng;
 const isResponder = <%= JSON.stringify(["volunteer", "ambulance_driver", "hospital_staff"].includes(user.role)) %>;
 let currentEmergencyId;
+const currentUserId = <%- JSON.stringify(String(user._id)) %>;
+let assignedEmergency = null;
 let locationTrackingStarted = false;
 
 // ========================================
@@ -154,8 +160,8 @@ async function initializeDashboardMap() {
       map = L.map("map", {
         center: defaultCenter,
         zoom: 5,
-        dragging: !L.Browser.mobile,
-        tap: !L.Browser.mobile,
+        dragging: true,
+        tap: true,
       });
 
       L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -448,9 +454,7 @@ async function loadSearchingEmergencies() {
       const button = document.createElement("button");
       button.className = "btn-success px-4 py-2 rounded-xl font-semibold transition-colors";
       button.textContent = "Accept";
-      button.addEventListener("click", () =>
-        acceptEmergency(emergency._id, button, status),
-      );
+      button.addEventListener("click", () => acceptEmergency(emergency._id, button, status));
 
       card.append(summary, button);
       list.appendChild(card);
@@ -462,6 +466,9 @@ async function loadSearchingEmergencies() {
 }
 
 async function acceptEmergency(emergencyId, button, statusElement) {
+  if (button.disabled) return;
+  button.disabled = true;
+  button.textContent = "Accepting…";
   try {
     const response = await fetch(`/api/emergency/${emergencyId}/accept`, {
       method: "POST",
@@ -471,15 +478,72 @@ async function acceptEmergency(emergencyId, button, statusElement) {
 
     if (!response.ok) {
       statusElement.textContent = data.error || "Unable to accept emergency.";
+      button.disabled = false;
+      button.textContent = "Accept";
       return;
     }
 
     button.disabled = true;
     button.textContent = "Assigned";
     statusElement.textContent = `Status: ${data.emergency.status}`;
+    renderAssignedEmergency(data.emergency);
   } catch (error) {
     console.error("[Dashboard] Emergency acceptance error:", error);
     statusElement.textContent = "Unable to accept emergency.";
+    button.disabled = false;
+    button.textContent = "Accept";
+  }
+}
+
+function renderAssignedEmergency(emergency) {
+  if (!isResponder) return;
+  assignedEmergency = emergency;
+  const panel = document.getElementById("assignedEmergencyPanel");
+  panel.replaceChildren();
+  const title = document.createElement("p");
+  title.className = "font-semibold";
+  title.textContent = `${emergency.emergencyType || "Emergency"} · ${emergency.status}`;
+  const detail = document.createElement("p");
+  detail.className = "helper-copy mt-1";
+  detail.textContent = emergency.description || "No additional details provided.";
+  panel.append(title, detail);
+  const nextStatus = emergency.status === "RESPONDER_ASSIGNED"
+    ? "RESPONDER_ON_WAY"
+    : emergency.status === "RESPONDER_ON_WAY"
+      ? "HELP_REACHED"
+      : null;
+  if (nextStatus) {
+    const action = document.createElement("button");
+    action.className = "btn-primary emergency-action mt-3";
+    action.textContent = nextStatus === "RESPONDER_ON_WAY" ? "I’m on the way" : "Mark help reached";
+    action.addEventListener("click", () => updateAssignedStatus(
+      emergency._id || emergency.id || emergency.emergencyId,
+      nextStatus,
+      action,
+    ));
+    panel.appendChild(action);
+  }
+}
+
+async function updateAssignedStatus(emergencyId, nextStatus, button) {
+  if (button.disabled) return;
+  button.disabled = true;
+  button.textContent = "Updating…";
+  try {
+    const response = await fetch(`/emergency/${emergencyId}/status`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Unable to update emergency.");
+    renderAssignedEmergency(data.emergency);
+  } catch (error) {
+    button.disabled = false;
+    button.textContent = "Try again";
+    document.getElementById("assignedEmergencyPanel").appendChild(
+      Object.assign(document.createElement("p"), { className: "helper-copy mt-2", textContent: error.message }),
+    );
   }
 }
 
@@ -544,6 +608,12 @@ if (socket) {
   socket.on("alert-accepted", (data) => {
     console.log("[Socket] Alert accepted:", data);
     loadNearbyAlerts();
+  });
+  EC.registerEmergencyUpdateListener(socket, (data) => {
+    if (isResponder && data?.assignedResponder && String(data.assignedResponder) === currentUserId) {
+      renderAssignedEmergency(data);
+      loadSearchingEmergencies();
+    }
   });
 }
 

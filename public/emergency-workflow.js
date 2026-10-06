@@ -101,6 +101,45 @@
       el("emergencySyncStatus").dataset.syncState = syncState;
     }
 
+    function renderHistory(history) {
+      const timeline = el("emergencyHistoryTimeline");
+      timeline.replaceChildren();
+      if (!history.length) {
+        setText("emergencyHistoryStatus", "No recorded history events yet.");
+        return;
+      }
+      setText("emergencyHistoryStatus", "Recorded emergency history");
+      history.forEach((entry) => {
+        const item = document.createElement("li");
+        item.className = "emergency-history-item";
+        const title = document.createElement("p");
+        title.className = "font-medium";
+        const label = entry.toStatus === "RESPONDER_ASSIGNED"
+          ? "Responder accepted the emergency"
+          : entry.toStatus === "RESPONDER_ON_WAY"
+            ? "Responder is on the way"
+            : entry.toStatus === "HELP_REACHED"
+              ? "Help reached"
+              : entry.toStatus === "RESOLVED"
+                ? "Emergency resolved"
+                : entry.toStatus === "CANCELLED"
+                  ? "Emergency cancelled"
+                  : entry.toStatus === "SEARCHING_FOR_HELP"
+                    ? "Searching for help"
+                    : "Emergency created";
+        title.textContent = label;
+        const metadata = document.createElement("p");
+        metadata.className = "helper-copy";
+        const date = entry.createdAt ? new Date(entry.createdAt) : null;
+        metadata.textContent = date && !Number.isNaN(date.getTime())
+          ? date.toLocaleString()
+          : "Time unavailable";
+        if (entry.actorRole) metadata.textContent += ` · ${entry.actorRole.replaceAll("_", " ")}`;
+        item.append(title, metadata);
+        timeline.appendChild(item);
+      });
+    }
+
     function focusStatus() {
       el("statusTextTop").focus({ preventScroll: true });
     }
@@ -336,6 +375,7 @@
             const data = await requestJson(`/emergency/${id}/history`);
             if (revision !== startedRevision || emergencyId !== id) return;
             const history = Array.isArray(data.history) ? data.history : [];
+            renderHistory(history);
             const latest = history[history.length - 1];
             if (!latest || !applyEmergency({ id, status: latest.toStatus, updatedAt: latest.createdAt }, { history, source: "history" })) {
               throw new Error("No confirmed emergency status was found in history.");
@@ -347,6 +387,9 @@
                 try { sessionStorage.removeItem(storageKey); } catch { /* Storage unavailable. */ }
               }
               feedback(`Status refresh failed. ${error.message}`);
+              setText("emergencyHistoryStatus", error.status === 403
+                ? "Emergency history is not available for this account."
+                : "Unable to load emergency history. Try again.");
             }
           }
         } else if (pendingId) {
@@ -509,7 +552,10 @@
       if (event.data?.type === "canonical-emergency-status") handleQueueStatus(event.data);
     });
     window.EC.registerEmergencyUpdateListener(socket, (data) => {
-      if (applyEmergency(data, { source: "socket" })) feedback("Emergency status updated by the server.");
+      if (applyEmergency(data, { source: "socket" })) {
+        feedback("Emergency status updated by the server.");
+        if (el("emergencyHistoryTimeline").children.length) recover();
+      }
     });
     window.addEventListener("app-socket-connected", recover);
     window.addEventListener("app-online", () => { render(); recover(); });
